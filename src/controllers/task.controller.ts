@@ -1,51 +1,150 @@
-import { jsonResponse } from "../utils/response";
+// =============================================================================
+// controllers/task.controller.ts
+//
+// WHY REWRITE:
+//   Old: functions took (db, cache, id, request) — userId never passed
+//        Used PUT (full replace) — REST best practice for partial update is PATCH
+//        No query param support (filter by status/priority/search)
+//        No `error: any` guard
+//
+// NEW:
+//   - Every handler receives AuthContext — userId always available
+//   - PATCH replaces PUT — partial updates only
+//   - GET /tasks supports ?status, ?priority, ?search, ?due_before, ?page, ?limit
+//   - All validation via utils/validation.ts
+//   - All responses via utils/response.ts typed helpers
+// =============================================================================
+
 import * as taskService from "../services/task.service";
-import { CreateTaskInput, UpdateTaskInput } from "../types/task.types";
+import {
+  validateCreateTaskInput,
+  validateUpdateTaskInput,
+  parsePositiveInt,
+} from "../utils/validation";
+import {
+  ok, created, badRequest, notFound,
+} from "../utils/response";
+import type { AuthContext } from "../middleware/auth.middleware";
+import type { Env }         from "../types/env.types";
+import type { TaskStatus, TaskPriority, TaskQueryParams } from "../types/task.types";
+import { TASK_STATUSES, TASK_PRIORITIES }                 from "../types/task.types";
 
-export async function handleGetAllTasks() {
-  const tasks = taskService.getAllTasks();
-  return jsonResponse(tasks, 200);
-}
+// ─── GET /tasks ───────────────────────────────────────────────────────────────
 
-export async function handleGetTaskById(id: number) {
-  const task = taskService.getTaskById(id);
+export async function handleGetAllTasks(
+  request: Request,
+  env:     Env,
+  auth:    AuthContext
+): Promise<Response> {
+  const url = new URL(request.url);
 
-  if (!task) {
-    return jsonResponse({ error: "Task not found" }, 404);
+  // Parse + validate query params
+  const statusParam   = url.searchParams.get("status");
+  const priorityParam = url.searchParams.get("priority");
+
+  if (statusParam && !TASK_STATUSES.includes(statusParam as TaskStatus)) {
+    return badRequest(`status must be one of: ${TASK_STATUSES.join(", ")}`);
+  }
+  if (priorityParam && !TASK_PRIORITIES.includes(priorityParam as TaskPriority)) {
+    return badRequest(`priority must be one of: ${TASK_PRIORITIES.join(", ")}`);
   }
 
-  return jsonResponse(task, 200);
+  const params: TaskQueryParams = {
+    status:     statusParam   as TaskStatus   | undefined ?? undefined,
+    priority:   priorityParam as TaskPriority | undefined ?? undefined,
+    due_before: url.searchParams.get("due_before") ?? undefined,
+    search:     url.searchParams.get("search")     ?? undefined,
+    page:       parsePositiveInt(url.searchParams.get("page"),  1),
+    limit:      parsePositiveInt(url.searchParams.get("limit"), 20, 100),
+  };
+
+  const result = await taskService.getAllTasks(
+    env.DB, env.CACHE, auth.userId, params
+  );
+
+  return ok(result.tasks, {
+    page:    result.page,
+    limit:   result.limit,
+    total:   result.total,
+    hasMore: result.page * result.limit < result.total,
+  });
 }
 
-export async function handleCreateTask(request: Request) {
-  const body = (await request.json()) as CreateTaskInput;
+// ─── GET /tasks/:id ───────────────────────────────────────────────────────────
 
-  if (!body.title || typeof body.title !== "string") {
-    return jsonResponse({ error: "Title is required" }, 400);
-  }
-
-  const newTask = taskService.createTask(body);
-  return jsonResponse(newTask, 201);
+export async function handleGetTaskById(
+  id:   number,
+  env:  Env,
+  auth: AuthContext
+): Promise<Response> {
+  // getTaskById throws AppError.notFound if not found — caught by withErrorHandling
+  const task = await taskService.getTaskById(env.DB, env.CACHE, id, auth.userId);
+  return ok(task);
 }
 
-export async function handleUpdateTask(id: number, request: Request) {
-  const body = (await request.json()) as UpdateTaskInput;
+// ─── POST /tasks ──────────────────────────────────────────────────────────────
 
-  const updatedTask = taskService.updateTask(id, body);
-
-  if (!updatedTask) {
-    return jsonResponse({ error: "Task not found" }, 404);
+export async function handleCreateTask(
+  request: Request,
+  env:     Env,
+  auth:    AuthContext
+): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return badRequest("Request body must be valid JSON");
   }
 
-  return jsonResponse(updatedTask, 200);
+  const validation = validateCreateTaskInput(body);
+  if (!validation.ok) {
+    return badRequest(validation.error);
+  }
+
+  const task = await taskService.createTask(env, auth.userId, validation.value);
+
+  return created(task);
 }
 
-export async function handleDeleteTask(id: number) {
-  const deleted = taskService.deleteTask(id);
+// ─── PATCH /tasks/:id ────────────────────────────────────────────────────────
+// WHY PATCH not PUT:
+//   PUT = full replacement (must send all fields, missing fields get cleared)
+//   PATCH = partial update (only send what changes)
+//   For a task manager, partial update is almost always what clients want.
 
-  if (!deleted) {
-    return jsonResponse({ error: "Task not found" }, 404);
+export async function handleUpdateTask(
+  id:      number,
+  request: Request,
+  env:     Env,
+  auth:    AuthContext
+): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return badRequest("Request body must be valid JSON");
   }
 
-  return jsonResponse({ message: "Task deleted" }, 200);
+  const validation = validateUpdateTaskInput(body);
+  if (!validation.ok) {
+    return badRequest(validation.error);
+  }
+
+  const task = await taskService.updateTask(
+    env.DB, env.CACHE, id, auth.userId, validation.value
+  );
+
+  return ok(task);
+}
+
+// ─── DELETE /tasks/:id ────────────────────────────────────────────────────────
+
+export async function handleDeleteTask(
+  id:   number,
+  env:  Env,
+  auth: AuthContext
+): Promise<Response> {
+  await taskService.deleteTask(env.DB, env.CACHE, id, auth.userId);
+  // 200 with message (not 204) — easier for clients to confirm what was deleted
+  return ok({ message: `Task ${id} deleted successfully` });
 }

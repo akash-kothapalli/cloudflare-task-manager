@@ -3,17 +3,22 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
+		"dev": "wrangler dev --local",
 		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev",
 		"test": "vitest",
-		"cf-typegen": "wrangler types"
+		"type-check": "tsc --noEmit",
+		"db:migrate:local": "wrangler d1 execute task-manager-db --local --file=src/db/schema.sql",
+		"db:migrate:remote": "wrangler d1 execute task-manager-db --remote --file=src/db/schema.sql",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.12.4",
-		"@types/node": "^25.2.3",
+		"@cloudflare/vitest-pool-workers": "^0.5.41",
+		"@cloudflare/workers-types": "^4.20250214.0",
 		"typescript": "^5.5.2",
-		"vitest": "~3.2.0",
-		"wrangler": "^4.65.0"
+		"vitest": "^2.1.8",
+		"wrangler": "^3.99.0"
+	},
+	"dependencies": {
+		"jose": "^6.1.3"
 	}
 }

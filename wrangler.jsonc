@@ -6,39 +6,70 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "cloudflare-task-manager",
 	"main": "src/index.ts",
-	"compatibility_date": "2026-02-12",
+	"compatibility_date": "2024-12-30",
+
+	// ── D1 Database ────────────────────────────────────────────────────────────
+	// Binding name must match env.DB in src/types/env.types.ts
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "task-manager-db",
+			"database_id": "e90b73ce-16bb-4662-9535-ee89e8294412"
+		}
+	],
+
+	// ── KV Namespace ───────────────────────────────────────────────────────────
+	// CHANGED: "TASK_CACHE" → "CACHE"
+	// Reason: binding name must match env.CACHE used in src/services/task.service.ts,
+	// src/middleware/security.ts, src/index.ts
+	// If this stays as TASK_CACHE the Worker throws:
+	//   "Cannot read properties of undefined (reading 'get')" on every request
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "6cc33984b7a84ac6b8bf8f8f6cef9a49"
+		}
+	],
+
+	// ── Workers AI ─────────────────────────────────────────────────────────────
+	// NEW: required for env.AI.run() in src/services/task.service.ts
+	// Llama-3-8b-instruct generates task summaries + sentiment analysis
+	// No ID needed — AI binding is account-level, not resource-level
+
+	// ── Environment variables ──────────────────────────────────────────────────
+	// NEW: ENVIRONMENT var used in src/types/env.types.ts
+	// Secrets (JWT_SECRET) are NOT here — set via: wrangler secret put JWT_SECRET
+	"vars": {
+		"ENVIRONMENT": "production"
+	},
+
+	// ── Observability ──────────────────────────────────────────────────────────
+	// Enables Workers Logpush + metrics in Cloudflare dashboard
 	"observability": {
 		"enabled": true
 	},
+
+	// ── Compatibility ──────────────────────────────────────────────────────────
+	// nodejs_compat: required for jose (JWT library) which uses Node.js crypto
 	"compatibility_flags": [
 		"nodejs_compat"
 	]
+
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
 	 */
-	// "placement": {  "mode": "smart" }
-	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
-	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
+	// "placement": { "mode": "smart" }
+
 	/**
 	 * Static Assets
 	 * https://developers.cloudflare.com/workers/static-assets/binding/
 	 */
-	// "assets": {  "directory": "./public/",  "binding": "ASSETS" }
+	// "assets": { "directory": "./public/", "binding": "ASSETS" }
+
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
 	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+	// "services": [ { "binding": "MY_SERVICE", "service": "my-service" } ]
 }

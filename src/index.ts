@@ -1,61 +1,67 @@
-import { jsonResponse } from "./utils/response";
+// =============================================================================
+// index.ts  — Cloudflare Worker entry point
+//
+// WHY REWRITE:
+//   Old: 120-line if-chain mixing routing, auth, and business logic
+//        TASK_CACHE binding (renamed to CACHE)
+//        No CORS preflight handling
+//        No WAF check
+//        Security headers applied incorrectly (mutating frozen Response)
+//
+// NEW — clean pipeline, each concern separated:
+//
+//   Request arrives
+//       ↓
+//   withErrorHandling  — catches any AppError or unexpected throw
+//       ↓
+//   detectMaliciousInput — WAF: SQLi / XSS / path traversal scan
+//       ↓
+//   handleCors           — OPTIONS preflight → 204, or continue
+//       ↓
+//   checkRateLimit       — 60 req/min/IP via KV → 429, or continue
+//       ↓
+//   logWithTiming        — records method/path/status/duration
+//       ↓
+//   router               — routes to correct controller
+//       ↓
+//   addSecurityHeaders   — wraps response with all security headers
+//       ↓
+//   Response sent
+// =============================================================================
+
+import { withErrorHandling }     from "./middleware/error-handler";
+import { logWithTiming }         from "./middleware/logger";
 import {
-  handleGetAllTasks,
-  handleGetTaskById,
-  handleCreateTask,
-  handleUpdateTask,
-  handleDeleteTask,
-} from "./controllers/task.controller";
+  addSecurityHeaders,
+  handleCors,
+  checkRateLimit,
+  detectMaliciousInput,
+}                                from "./middleware/security";
+import { router }                from "./routes/index";
+import type { Env }              from "./types/env.types";
 
 export default {
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const method = request.method;
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+    return withErrorHandling(async () => {
 
-    // Health check
-    if (url.pathname === "/health" && method === "GET") {
-      return jsonResponse({ status: "ok" }, 200);
-    }
+      // 1. WAF — block obvious injection attempts before any processing
+      const wafBlock = detectMaliciousInput(request);
+      if (wafBlock) return addSecurityHeaders(wafBlock);
 
-    // Root
-    if (url.pathname === "/" && method === "GET") {
-      return jsonResponse(
-        { message: "Cloudflare Task Manager API Running" },
-        200
-      );
-    }
+      // 2. CORS preflight — OPTIONS must return 204 before rate limit check
+      //    (browsers send OPTIONS before every cross-origin request)
+      const corsResponse = handleCors(request);
+      if (corsResponse) return addSecurityHeaders(corsResponse);
 
-    // GET /tasks
-    if (url.pathname === "/tasks" && method === "GET") {
-      return handleGetAllTasks();
-    }
+      // 3. Rate limiting — check KV counter for this IP
+      const rateLimitResponse = await checkRateLimit(request, env.CACHE);
+      if (rateLimitResponse) return addSecurityHeaders(rateLimitResponse);
 
-    // POST /tasks
-    if (url.pathname === "/tasks" && method === "POST") {
-      return handleCreateTask(request);
-    }
+      // 4. Log + route — timing wraps the actual handler
+      const response = await logWithTiming(request, () => router(request, env));
 
-    // Routes with ID
-    if (url.pathname.startsWith("/tasks/")) {
-      const id = Number(url.pathname.split("/")[2]);
-
-      if (isNaN(id)) {
-        return jsonResponse({ error: "Invalid ID" }, 400);
-      }
-
-      if (method === "GET") {
-        return handleGetTaskById(id);
-      }
-
-      if (method === "PUT") {
-        return handleUpdateTask(id, request);
-      }
-
-      if (method === "DELETE") {
-        return handleDeleteTask(id);
-      }
-    }
-
-    return jsonResponse({ error: "Not Found" }, 404);
+      // 5. Security headers — applied to every response that reaches the client
+      return addSecurityHeaders(response);
+    });
   },
 };
