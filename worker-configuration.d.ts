@@ -14,9 +14,9 @@ interface Env {
 	// Binding name MUST match wrangler.jsonc: "binding": "CACHE"
 	CACHE: KVNamespace;
 
-	// Workers AI — Llama-3 inference
-	// Binding name MUST match wrangler.jsonc: "binding": "AI"
-	AI: Ai;
+	// Workers AI — Llama-3 inference (optional: not injected in local/test env)
+	// Guard all AI usage with: if (!env.AI) return;
+	AI?: Ai;
 
 	// Secret — set via: wrangler secret put JWT_SECRET
 	JWT_SECRET: string;

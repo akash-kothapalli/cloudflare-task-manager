@@ -1,0 +1,51 @@
+/**
+ * wrangler.test.jsonc — used ONLY by vitest / Miniflare during `npm test`
+ *
+ * WHY A SEPARATE FILE:
+ *   Miniflare (the local Workers runtime powering vitest) cannot simulate
+ *   Workers AI — it requires Cloudflare's GPU inference network.
+ *   If the "ai" binding is present during tests, Miniflare throws:
+ *     "wrapped binding module can't be resolved (internal modules only);
+ *      moduleName = miniflare-internal:wrapped:__WRANGLER_EXTERNAL_AI_WORKER"
+ *   ...and the runtime crashes before any test runs (0 tests executed).
+ *
+ *   Solution: identical config to wrangler.jsonc but with "ai" omitted.
+ *   The AI service is guarded with `if (!env.AI) return;` so tests pass
+ *   without AI enrichment — which is correct behaviour for a test environment.
+ *
+ *   Production deploy still uses wrangler.jsonc (with "ai" binding).
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cloudflare-task-manager",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-12-30",
+
+	// D1 — same binding name and ID as production
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "task-manager-db",
+			"database_id": "e90b73ce-16bb-4662-9535-ee89e8294412"
+		}
+	],
+
+	// KV — same binding name and ID as production
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "6cc33984b7a84ac6b8bf8f8f6cef9a49"
+		}
+	],
+
+	// NO "ai" binding here — Miniflare cannot resolve Workers AI locally.
+	// env.AI will be undefined in tests; all AI code is guarded with if (!env.AI).
+
+	"vars": {
+		"ENVIRONMENT": "test"
+	},
+
+	"compatibility_flags": [
+		"nodejs_compat"
+	]
+}

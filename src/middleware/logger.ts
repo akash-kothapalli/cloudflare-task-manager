@@ -51,8 +51,16 @@ export async function logWithTiming(
     user_agent:  request.headers.get("User-Agent")       ?? "",
   }));
 
-  // Echo the request ID back so clients can correlate logs
-  response.headers.set("X-Request-ID", requestId);
+  // Echo the request ID back so clients can correlate logs.
+  // IMPORTANT: Workers Response objects are immutable after creation —
+  // calling .set() on a frozen response silently fails or throws.
+  // We must clone the response and add the header to the new copy.
+  const newHeaders = new Headers(response.headers);
+  newHeaders.set("X-Request-ID", requestId);
 
-  return response;
+  return new Response(response.body, {
+    status:     response.status,
+    statusText: response.statusText,
+    headers:    newHeaders,
+  });
 }

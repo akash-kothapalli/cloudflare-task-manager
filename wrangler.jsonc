@@ -32,13 +32,16 @@
 	],
 
 	// ── Workers AI ─────────────────────────────────────────────────────────────
-	// NEW: required for env.AI.run() in src/services/task.service.ts
-	// Llama-3-8b-instruct generates task summaries + sentiment analysis
-	// No ID needed — AI binding is account-level, not resource-level
+	// Llama-3-8b-instruct generates task summaries + sentiment analysis.
+	// No ID needed — AI binding is account-level, not resource-level.
+	// Guard with: if (!env.AI) return; in services (not available in local dev).
+	"ai": {
+		"binding": "AI"
+	},
 
 	// ── Environment variables ──────────────────────────────────────────────────
-	// NEW: ENVIRONMENT var used in src/types/env.types.ts
-	// Secrets (JWT_SECRET) are NOT here — set via: wrangler secret put JWT_SECRET
+	// Secrets (JWT_SECRET) are NOT here for production — set via: wrangler secret put JWT_SECRET
+	// For local dev + tests: set in .dev.vars (read by wrangler dev and miniflare automatically)
 	"vars": {
 		"ENVIRONMENT": "production"
 	},

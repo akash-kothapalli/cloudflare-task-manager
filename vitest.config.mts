@@ -13,7 +13,7 @@ export default defineWorkersConfig({
 				// the "ai" binding. Miniflare cannot resolve Workers AI locally
 				// (it requires Cloudflare's GPU inference network).
 				// AI enrichment is optional — guarded with if (!env.AI) in the service.
-				wrangler: { configPath: "./wrangler.jsonc" },
+				wrangler: { configPath: "./wrangler.test.jsonc" },
 			},
 		},
 	},

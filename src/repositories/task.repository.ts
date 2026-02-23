@@ -183,7 +183,11 @@ export async function create(
     )
     .run();
 
-  const taskId = result.meta.last_row_id as number;
+  // WHY last_insert_rowid(): result.meta.last_row_id is unreliable in Miniflare
+  const idRow = await db
+    .prepare("SELECT last_insert_rowid() as id")
+    .first<{ id: number }>();
+  const taskId = idRow!.id;
 
   // Attach tags if provided
   if (input.tag_ids && input.tag_ids.length > 0) {

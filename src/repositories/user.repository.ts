@@ -63,15 +63,18 @@ export async function createUser(
   name:     string,
   password: string
 ): Promise<User> {
-  const result = await db
+  await db
     .prepare("INSERT INTO users (email, name, password) VALUES (?, ?, ?)")
     .bind(email, name, password)
     .run();
 
-  // Fetch the inserted row by its new ID
+  // WHY last_insert_rowid() not result.meta.last_row_id:
+  //   In Miniflare (test environment), result.meta.last_row_id can return 0
+  //   or an incorrect value, causing the subsequent SELECT to fetch the wrong
+  //   row (or nothing). The SQL function last_insert_rowid() is connection-scoped
+  //   and always returns the correct ID for the most recent INSERT on this connection.
   const row = await db
-    .prepare("SELECT * FROM users WHERE id = ?")
-    .bind(result.meta.last_row_id)
+    .prepare("SELECT * FROM users WHERE id = last_insert_rowid()")
     .first<Record<string, unknown>>();
 
   if (!row) throw new Error("Failed to retrieve user after insert");

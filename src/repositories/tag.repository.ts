@@ -50,14 +50,14 @@ export async function create(
 ): Promise<Tag> {
   const color = input.color ?? "#6366f1";
 
-  const result = await db
+  await db
     .prepare("INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)")
     .bind(userId, input.name, color)
     .run();
 
+  // WHY last_insert_rowid(): result.meta.last_row_id is unreliable in Miniflare
   const row = await db
-    .prepare("SELECT * FROM tags WHERE id = ?")
-    .bind(result.meta.last_row_id)
+    .prepare("SELECT * FROM tags WHERE id = last_insert_rowid()")
     .first<Record<string, unknown>>();
 
   if (!row) throw new Error("Failed to retrieve tag after insert");
