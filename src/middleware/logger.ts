@@ -1,11 +1,5 @@
 // =============================================================================
 // middleware/logger.ts
-//
-// WHY REWRITE:
-//   Old: console.log(`[timestamp]${method} ${url}…`) — note the missing space
-//        Plain string — can't be parsed by log analysis tools
-//
-// NEW:
 //   - Structured JSON: every field is a key — parseable by Cloudflare Log Push,
 //     Datadog, Grafana, or any log aggregator
 //   - Cloudflare-specific headers: CF-Ray (request trace ID), CF-IPCountry,

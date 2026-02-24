@@ -1,13 +1,5 @@
 // =============================================================================
 // middleware/auth.middleware.ts
-//
-// WHY REWRITE:
-//   Old: requireAuth returns either a Response (401) or a raw JWTPayload.
-//        The caller (index.ts) checks `instanceof Response` but then DISCARDS
-//        the payload — so userId was never passed to any task handler.
-//        That's why all tasks were unscoped (every user saw every task).
-//
-// NEW:
 //   - Returns a typed AuthContext ({ userId, email, name }) on success
 //   - Returns a Response on failure (same pattern — caller checks instanceof)
 //   - AuthContext is the single object passed into every protected handler

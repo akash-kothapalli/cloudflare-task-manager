@@ -1,11 +1,5 @@
 // =============================================================================
 // utils/validation.ts  — NEW FILE
-//
-// WHY:
-//   Old code had inline validation in every controller separately.
-//   A typo in one controller means invalid data hits the DB.
-//   Central validation = one place to fix, one place to test.
-//
 // APPROACH:
 //   - Pure functions, no side effects
 //   - Returns typed Result<T> — either { ok: true, value } or { ok: false, error }

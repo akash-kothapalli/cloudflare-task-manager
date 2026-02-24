@@ -1,11 +1,6 @@
 // =============================================================================
-// routes/index.ts  — NEW FILE
+// routes/index.ts  — Central router for all API endpoints
 //
-// WHY:
-//   Old index.ts had a massive if-chain: 200+ lines of routing logic mixed
-//   with business logic. Hard to read, hard to extend, easy to miss a route.
-//
-// NEW:
 //   Clean router function — pure routing only.
 //   Each route:
 //     1. Parses the URL + method
@@ -14,7 +9,6 @@
 //     4. Calls one controller function
 //     5. Returns the Response
 //
-//   All error handling is in withErrorHandling (index.ts) — not here.
 //   All auth is via requireAuth — not inline in routes.
 // =============================================================================
 

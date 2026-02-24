@@ -1,13 +1,5 @@
 // =============================================================================
 // services/auth.service.ts
-//
-// WHY REWRITE:
-//   Old: register didn't accept name, returned only { id, email } (no token)
-//        login returned only { token } (no user object)
-//        JWT payload had no name field
-//        Used plain { status, message } throws — replaced with AppError
-//
-// NEW:
 //   - register returns AuthResponse: { token, user: UserPublic }
 //   - login    returns AuthResponse: { token, user: UserPublic }
 //   - JWT payload includes name (so clients don't need an extra /me call)

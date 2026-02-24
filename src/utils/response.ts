@@ -1,13 +1,5 @@
 // =============================================================================
 // utils/response.ts
-//
-// WHY REWRITE:
-//   Old: jsonResponse(data: any, status: number)
-//        - `any` means TypeScript can't catch wrong response shapes
-//        - No consistent envelope — some places return { error } some return data directly
-//        - No CORS headers — preflight would fail
-//
-// NEW:
 //   - Generic typed envelope: { success, data } | { success, error }
 //   - Single source of truth for every HTTP response in the app
 //   - CORS headers on every response (required for browser clients)

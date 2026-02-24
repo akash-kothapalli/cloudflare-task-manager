@@ -1,11 +1,6 @@
 // =============================================================================
 // controllers/auth.controller.ts
 //
-// WHY REWRITE:
-//   Old: used `error: any`, validated only email+password (no name),
-//        returned inconsistent shapes from register vs login
-//
-// NEW:
 //   - Uses central validation from utils/validation.ts — no inline logic
 //   - No `any` anywhere — all errors properly typed and narrowed
 //   - register and login both return AuthResponse: { token, user }

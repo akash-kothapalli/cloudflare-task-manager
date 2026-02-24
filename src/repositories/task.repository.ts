@@ -1,13 +1,5 @@
 // =============================================================================
 // repositories/task.repository.ts
-//
-// WHY REWRITE:
-//   Old: SELECT * FROM tasks — no user_id filter (security bug)
-//        Only title + completed fields
-//        No tags support
-//        `as unknown as Task` unsafe casts
-//
-// NEW:
 //   - Every query filters by user_id — tasks are always user-scoped
 //   - Full field set: status, priority, due_date, completed_at, ai fields
 //   - Tags fetched with a JOIN and attached to TaskResponse

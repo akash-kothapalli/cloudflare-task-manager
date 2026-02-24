@@ -1,14 +1,7 @@
 // =============================================================================
 // index.ts  — Cloudflare Worker entry point
 //
-// WHY REWRITE:
-//   Old: 120-line if-chain mixing routing, auth, and business logic
-//        TASK_CACHE binding (renamed to CACHE)
-//        No CORS preflight handling
-//        No WAF check
-//        Security headers applied incorrectly (mutating frozen Response)
-//
-// NEW — clean pipeline, each concern separated:
+//  Clean pipeline, each concern separated:
 //
 //   Request arrives
 //       ↓

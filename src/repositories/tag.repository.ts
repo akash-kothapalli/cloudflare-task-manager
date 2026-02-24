@@ -1,7 +1,5 @@
 // =============================================================================
-// repositories/tag.repository.ts  — NEW FILE
-//
-// WHY NEW:
+// repositories/tag.repository.ts
 //   We have a tags table (Step 2 schema) that needs CRUD.
 //   Tags are per-user — every query filters by user_id.
 // =============================================================================

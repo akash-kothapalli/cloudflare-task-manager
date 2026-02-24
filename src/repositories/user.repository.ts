@@ -1,12 +1,5 @@
 // =============================================================================
 // repositories/user.repository.ts
-//
-// WHY REWRITE:
-//   Old: createUser only took email + password (no name)
-//        Used `as unknown as User` casts — unsafe, hides type mismatches
-//        No updated_at handling
-//
-// NEW:
 //   - All D1 rows explicitly mapped field-by-field — no unsafe casts
 //   - Supports name field (Step 2 schema)
 //   - findById added — needed by auth.service after create

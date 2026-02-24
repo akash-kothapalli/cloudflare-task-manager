@@ -1,8 +1,31 @@
-# Cloudflare Task Manager API
+# Cloudflare Task Manager
 
-A production-grade REST API built on Cloudflare Workers with D1 (SQLite), KV Store, and Workers AI. Built as part of the nexarq AI technical assessment.
+A full-stack task management application built on Cloudflare Workers, D1, KV,and Workers AI. Zero external dependencies — runs entirely on Cloudflare's developer platform.
 
 **Live URL:** `https://cloudflare-task-manager.<your-subdomain>.workers.dev`
+
+---
+
+## What It Does
+
+Create and manage tasks with full lifecycle tracking (todo → in progress → done). Every task is automatically enriched by **Llama-3** running on Workers AI — generating a one-sentence summary and sentiment classification without any user wait time. Tags, filters, pagination, and a dark-themed UI are all included.
+
+---
+
+## UI Features
+
+The frontend is a single `public/index.html` — 1,305 lines, zero dependencies, zero build step:
+
+- **Auth** — Login / Register tabs, JWT stored in localStorage, session auto-restored on refresh
+- **Task board** — Cards with status chips, priority badges, due dates, and tag chips
+- **AI strip** — `ai_summary` and `ai_sentiment` appear on each card after Llama-3 enriches (colour-coded: green = positive, yellow = neutral, red = negative)
+- **Sidebar filters** — All / Todo / In Progress / Done with live counts
+- **Priority filter** dropdown
+- **Stats bar** — Total / In Progress / Done / AI Enriched counts
+- **Modals** — Create/Edit task (all fields), Manage tags with hex color palette picker
+- **Pagination** — Prev/Next for multi-page results
+- **Toast notifications** — Success/error feedback
+- **Dark theme** — Cloudflare orange accent, DM Mono + Syne fonts
 
 ---
 
@@ -10,47 +33,56 @@ A production-grade REST API built on Cloudflare Workers with D1 (SQLite), KV Sto
 
 | Layer | Technology | Why |
 |---|---|---|
-| Runtime | Cloudflare Workers (V8 isolate) | Edge execution, zero cold start, global |
-| Database | D1 (SQLite) | Relational data, FK constraints, indexes |
-| Cache | KV Store | Per-user task cache, rate-limit counters |
-| AI | Workers AI — Llama-3-8b | Task summarisation + sentiment analysis |
-| Auth | JWT via `jose` + PBKDF2 | Web Crypto only — no Node.js deps |
-| Language | TypeScript (strict mode) | Type safety, no `any`, Readonly DB rows |
+| Runtime | Cloudflare Workers (V8 isolate) | Edge execution, zero cold start, globally distributed |
+| Database | D1 (SQLite) | Relational data, FK constraints, composite indexes |
+| Cache | KV Store | Per-user task cache + sliding-window rate limiting |
+| AI | Workers AI — Llama-3-8b-instruct | Task summarisation + sentiment, no external API key |
+| Frontend | Vanilla HTML/JS — `public/index.html` | Zero build step, served as Workers static asset |
+| Auth | JWT (jose) + PBKDF2-SHA256 | Web Crypto only — no Node.js crypto dependency |
+| Language | TypeScript strict mode | No `any`, Readonly types, discriminated unions |
 
 ---
 
 ## Project Structure
 
 ```
-src/
-├── controllers/     — HTTP layer: parse request, call service, return response
-│   ├── auth.controller.ts
-│   ├── task.controller.ts
-│   └── tag.controller.ts
-├── services/        — Business logic: validation, caching, AI enrichment
-│   ├── auth.service.ts
-│   ├── task.service.ts
-│   └── tag.service.ts
-├── repositories/    — Data layer: all SQL queries, row mapping, no business logic
-│   ├── user.repository.ts
-│   ├── task.repository.ts
-│   └── tag.repository.ts
-├── middleware/      — Cross-cutting concerns
-│   ├── auth.middleware.ts    — JWT verification → AuthContext
-│   ├── security.ts           — Headers, CORS, rate limiting, WAF
-│   ├── logger.ts             — Structured JSON logging
-│   └── error-handler.ts      — AppError class, global error boundary
-├── routes/
-│   └── index.ts              — Clean router (replaces if-chain anti-pattern)
-├── types/           — Strict TypeScript types, no any
-├── utils/
-│   ├── jwt.ts                — PBKDF2 password hashing + JWT sign/verify
-│   ├── response.ts           — Typed API envelope helpers
-│   └── validation.ts         — Central input validation, ValidationResult<T>
-├── db/
-│   ├── schema.sql            — D1 table definitions + indexes
-│   └── seed.sql              — Development test data
-└── index.ts                  — Worker entry point: 5-step request pipeline
+cloudflare-task-manager/
+├── public/
+│   └── index.html              ← Full UI — 1,305 lines, zero dependencies
+├── src/
+│   ├── index.ts                ← Worker entry point: 5-step request pipeline
+│   ├── controllers/            ← HTTP layer: parse → validate → call service → respond
+│   │   ├── auth.controller.ts
+│   │   ├── task.controller.ts
+│   │   └── tag.controller.ts
+│   ├── services/               ← Business logic, caching, AI enrichment
+│   │   ├── auth.service.ts
+│   │   ├── task.service.ts
+│   │   └── tag.service.ts
+│   ├── repositories/           ← Data layer: SQL only, parameterised queries, row mapping
+│   │   ├── user.repository.ts
+│   │   ├── task.repository.ts
+│   │   └── tag.repository.ts
+│   ├── middleware/
+│   │   ├── auth.middleware.ts  ← JWT verification → typed AuthContext
+│   │   ├── security.ts         ← Security headers, CORS, rate limiting, WAF
+│   │   ├── logger.ts           ← Structured JSON logging with CF-Ray + timing
+│   │   └── error-handler.ts   ← AppError class + global error boundary
+│   ├── routes/
+│   │   └── index.ts            ← Clean router — no if-chain anti-pattern
+│   ├── types/                  ← Strict TypeScript interfaces, no any
+│   ├── utils/
+│   │   ├── jwt.ts              ← PBKDF2 hashing + JWT sign/verify
+│   │   ├── response.ts         ← Typed API envelope: ok(), created(), badRequest()...
+│   │   └── validation.ts       ← Central validation, ValidationResult<T> pattern
+│   └── db/
+│       ├── schema.sql          ← 4 tables, 8 indexes, CHECK constraints
+│       └── seed.sql            ← Dev test data (2 users, 4 tags, 8 tasks)
+├── test/
+│   └── index.spec.ts           ← 35 integration tests (vitest-pool-workers)
+├── wrangler.jsonc              ← Production config (DB + KV + AI + Assets)
+├── wrangler.test.jsonc         ← Test config (no AI binding — Miniflare limitation)
+└── vitest.config.mts           ← Points at wrangler.test.jsonc for local tests
 ```
 
 ---
@@ -63,7 +95,7 @@ src/
 
 ---
 
-## Local Setup — Step by Step
+## Local Setup
 
 ### 1. Clone and install
 
@@ -77,7 +109,6 @@ npm install
 
 ```bash
 npx wrangler login
-# Opens browser — log in with your Cloudflare account
 ```
 
 ### 3. Create D1 database
@@ -86,7 +117,8 @@ npx wrangler login
 npx wrangler d1 create task-manager-db
 ```
 
-Copy the `database_id` from the output and verify it matches `wrangler.jsonc`:
+Copy the `database_id` from the output into **both** `wrangler.jsonc` and `wrangler.test.jsonc`:
+
 ```jsonc
 "d1_databases": [{ "binding": "DB", "database_name": "task-manager-db", "database_id": "YOUR-ID-HERE" }]
 ```
@@ -97,33 +129,33 @@ Copy the `database_id` from the output and verify it matches `wrangler.jsonc`:
 npx wrangler kv namespace create CACHE
 ```
 
-Copy the `id` and verify it matches `wrangler.jsonc`:
+Copy the `id` into **both** `wrangler.jsonc` and `wrangler.test.jsonc`:
+
 ```jsonc
 "kv_namespaces": [{ "binding": "CACHE", "id": "YOUR-KV-ID-HERE" }]
 ```
 
-### 5. Set up local secrets
+### 5. Create `.dev.vars` for local secrets
 
-Create `.dev.vars` in the project root (already in `.gitignore`):
 ```
-JWT_SECRET=your-secret-here-minimum-32-characters
+JWT_SECRET=your-secret-minimum-32-characters-long
 ENVIRONMENT=development
 ```
 
-Generate a secure secret on Windows PowerShell:
+Generate a secure value — Windows PowerShell:
 ```powershell
 -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
 ```
 
-Or on Mac/Linux:
+Mac/Linux:
 ```bash
 openssl rand -hex 32
 ```
 
-### 6. Run DB migration locally
+### 6. Apply schema locally
 
 ```bash
-npx wrangler d1 execute task-manager-db --local --file=src/db/schema.sql
+npm run db:migrate:local
 ```
 
 ### 7. Seed test data (optional)
@@ -132,24 +164,28 @@ npx wrangler d1 execute task-manager-db --local --file=src/db/schema.sql
 npx wrangler d1 execute task-manager-db --local --file=src/db/seed.sql
 ```
 
-### 8. Start local dev server
+### 8. Start dev server
 
 ```bash
 npm run dev
-# → Ready on http://localhost:8787
+# → http://localhost:8787  (UI + API on the same origin)
 ```
+
+Open `http://localhost:8787` — the full UI loads. Register an account, create tasks, and watch AI summaries appear on cards after ~1–2 seconds.
 
 ---
 
 ## API Reference
 
-All protected endpoints require: `Authorization: Bearer <token>`
+**Base URL (local):** `http://localhost:8787`
 
-All responses follow this envelope:
+All responses use a consistent envelope:
 ```json
-{ "success": true, "data": { ... } }
+{ "success": true,  "data": { ... } }
 { "success": false, "error": { "code": "ERROR_CODE", "message": "..." } }
 ```
+
+Protected routes require: `Authorization: Bearer <token>`
 
 ---
 
@@ -214,6 +250,9 @@ Get the current user's profile.
 curl http://localhost:8787/auth/me \
   -H "Authorization: Bearer <token>"
 ```
+
+---
+Validation: email format required, name required, password minimum 8 characters. Duplicate email returns `409`. Wrong credentials return `401` with identical message whether email or password is wrong (prevents user enumeration).
 
 ---
 
@@ -373,6 +412,21 @@ curl -X DELETE http://localhost:8787/tasks/3 \
 
 **Response 200:** `{ "success": true, "data": { "message": "Task 3 deleted successfully" } }`
 
+**Partial update**
+```bash
+# Mark done — completed_at is auto-set by the DB
+curl -X PATCH http://localhost:8787/tasks/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"done"}'
+
+# Only update priority — other fields unchanged
+curl -X PATCH http://localhost:8787/tasks/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"priority":"high"}'
+```
+
 ---
 
 ### Tags
@@ -411,197 +465,230 @@ curl -X DELETE http://localhost:8787/tags/1 \
 
 ---
 
-## Testing
-
-### Run automated tests
+## Tests
 
 ```bash
 npm test
 ```
 
-Tests run inside a real Workers runtime via `@cloudflare/vitest-pool-workers` — same V8 isolate as production. 35 test cases covering auth, CRUD, filtering, security headers, and CORS.
+39 integration tests run inside a real Workers V8 runtime via `@cloudflare/vitest-pool-workers`. The real `schema.sql` is loaded before each run via `?raw` import — no hardcoded schema in test files.
 
-### Manual testing with curl — complete flow
-
-```bash
-BASE=http://localhost:8787
-
-# 1. Register
-TOKEN=$(curl -s -X POST $BASE/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","name":"Test User","password":"password123"}' \
-  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-
-echo "Token: $TOKEN"
-
-# 2. Create a task
-curl -X POST $BASE/tasks \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"My first task","priority":"high","due_date":"2026-12-31"}'
-
-# 3. List tasks
-curl "$BASE/tasks" -H "Authorization: Bearer $TOKEN"
-
-# 4. Mark as done (replace 1 with your task ID)
-curl -X PATCH $BASE/tasks/1 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"status":"done"}'
-
-# 5. Wait 2 seconds then fetch — AI fields should now be populated
-sleep 2
-curl $BASE/tasks/1 -H "Authorization: Bearer $TOKEN"
-```
+| Suite | Tests |
+|---|---|
+| Health check | 1 |
+| Register | 5 |
+| Login | 3 |
+| Auth/Me | 3 |
+| Task Create | 5 |
+| Task Read | 6 |
+| Task Update | 4 |
+| Tags | 6 |
+| Security headers | 4 |
+| Task Delete | 2 |
 
 ---
 
 ## Deployment
 
-### 1. Apply schema to remote DB
+### 1. Apply schema to remote D1
 
 ```bash
-npx wrangler d1 execute task-manager-db --remote --file=src/db/schema.sql
+npm run db:migrate:remote
 ```
 
-### 2. Seed remote DB (optional)
-
-```bash
-npx wrangler d1 execute task-manager-db --remote --file=src/db/seed.sql
-```
-
-> **Note:** The seed users have placeholder password hashes. Register fresh users via the API after deploying — the PBKDF2 hash in seed.sql is illustrative only.
-
-### 3. Set production secret
+### 2. Set production secret
 
 ```bash
 npx wrangler secret put JWT_SECRET
-# Paste your secret when prompted (use openssl rand -hex 32)
+# Paste your generated secret at the prompt
 ```
 
-### 4. Deploy
+### 3. Deploy
 
 ```bash
 npm run deploy
 ```
 
-Output: `✅ Deployed to https://cloudflare-task-manager.<subdomain>.workers.dev`
+Output: `Deployed to https://cloudflare-task-manager.<subdomain>.workers.dev`
 
-### 5. Test live deployment
+Cloudflare automatically:
+- Serves `public/index.html` at the root URL
+- Routes `/auth/*`, `/tasks/*`, `/tags/*`, `/health` to the Worker
+- Both UI and API on the same domain — no CORS issues at all
+
+### 4. Push to GitHub
 
 ```bash
-BASE=https://cloudflare-task-manager.<subdomain>.workers.dev
-curl $BASE/health
+git add .
+git commit -m "feat: full-stack task manager on Cloudflare Workers + D1 + KV + AI"
+git push origin main
 ```
+
+Update the Live URL at the top of this README with your actual `workers.dev` URL.
 
 ---
 
-## Architectural Decisions
+## Architecture
 
-### Why no framework (no Hono)?
+### Request pipeline
 
-The assessment required demonstrating HTTP protocol knowledge. Using a framework hides routing, middleware chaining, and header handling. Our custom router and 5-step middleware pipeline shows understanding of how requests actually flow through an edge Worker.
-
-### Request pipeline (`src/index.ts`)
+Every request passes through five ordered layers before reaching a controller:
 
 ```
-Request
-  → WAF scan (SQLi / XSS / path traversal patterns)
-  → CORS preflight (OPTIONS → 204 immediately)
-  → Rate limiting (60 req/min/IP via KV sliding window)
-  → Structured JSON logging (CF-Ray, IP, country, duration)
-  → Router → Controller → Service → Repository
-  → Security headers on every response
+Request arrives
+  │
+  ├─ WAF                 detectMaliciousInput()
+  │                      Regex for SQLi (UNION SELECT, xp_, exec()),
+  │                      XSS (<script>, javascript:, event handlers),
+  │                      path traversal (../, %2e%2e)
+  │                      → 403 if matched
+  │
+  ├─ CORS preflight      handleCors()
+  │                      OPTIONS → 204 with Access-Control-* headers
+  │                      Runs before rate limiter (browsers preflight all cross-origin requests)
+  │
+  ├─ Rate limiting       checkRateLimit()
+  │                      KV counter keyed on CF-Connecting-IP (not spoofable)
+  │                      60 req/min sliding window → 429 + Retry-After
+  │
+  ├─ Logging             logWithTiming()
+  │                      Structured JSON: method, path, status, duration_ms, CF-Ray, country
+  │
+  ├─ Router              controller → service → repository
+  │
+  └─ Security headers    addSecurityHeaders()
+                         Applied to every outgoing response (creates new Response — Workers responses are immutable)
 ```
 
 ### KV Store — two use cases
 
-**1. Per-user task cache**
-- Key: `tasks:{userId}` and `task:{userId}:{taskId}`
-- TTL: 60 seconds
-- Invalidated on every write (create/update/delete)
-- Why per-user: a global `all_tasks` key would let user A's cache contain user B's data
-
-**2. Rate limiting**
-- Key: `rl:{ip}` using `CF-Connecting-IP` (Cloudflare's real IP header — not spoofable)
-- Counter incremented per request, TTL resets each time (sliding window)
-- 60 requests/minute/IP → `429 Too Many Requests` with `Retry-After` header
-- D1 would add unnecessary SQL overhead for every request — KV's ~1ms reads are perfect here
-
-### D1 database design
-
-- 4 tables: `users`, `tasks`, `tags`, `task_tags`
-- `tasks.user_id` foreign key with `ON DELETE CASCADE` — user deletion cleans up everything
-- Composite indexes on `(user_id, status)` and `(user_id, priority)` — filter queries are instant even at scale
-- All timestamps stored as `TEXT` — D1/SQLite stores DATETIME as TEXT internally; being explicit avoids type confusion
-- `CHECK` constraints on `status`, `priority`, `ai_sentiment` — DB rejects invalid values even if app layer has a bug
-
-### Password hashing — Web Crypto PBKDF2
-
-`bcryptjs` uses Node.js `crypto.pbkdf2()` which doesn't exist in Workers V8 runtime. We use `crypto.subtle` (Web Crypto API — built into every Worker):
-- Algorithm: PBKDF2-SHA256, 100,000 iterations
-- Salt: 16 random bytes per password (from `crypto.getRandomValues`)
-- Output: 256-bit hash stored as `saltHex:hashHex`
-- Constant-time comparison to prevent timing attacks
-
-### Workers AI — How it works
-
-When a task is created, the Worker makes an inference call to Cloudflare's AI gateway running **Llama-3-8b-instruct** (Meta's open-source 8 billion parameter language model):
-
+**Task cache (per-user isolation):**
 ```
-User creates task
-      ↓
-Worker returns 201 immediately (user doesn't wait)
-      ↓ (async, non-blocking)
-enrichWithAI() sends prompt to Llama-3:
-  "Analyse this task. Respond ONLY with JSON:
-   {summary: '...', sentiment: 'positive|neutral|negative'}"
-      ↓
-Llama-3 returns inference result (~1 second)
-      ↓
-Worker parses JSON, validates sentiment value
-      ↓
-D1: UPDATE tasks SET ai_summary=?, ai_sentiment=? WHERE id=?
-KV: invalidate task cache so next GET returns AI fields
+Key pattern:  tasks:{userId}          list cache
+              task:{userId}:{taskId}  item cache
+TTL:          60 seconds
+Invalidation: every write (create / update / delete)
+Why per-user: a shared "all_tasks" key would mix users' data
 ```
 
-**Why non-blocking?** AI inference takes 500ms–2s. Making the user wait would make every `POST /tasks` slow. By firing the AI call after sending the response, the API stays fast and the AI fields appear on subsequent GETs.
+**Rate limiting (sliding window):**
+```
+Key:   rl:{ip}
+Value: request count
+TTL:   60 seconds — auto-reset creates sliding window effect
+Why KV: ~1ms reads vs ~5–10ms D1 round-trip for this hot path
+```
 
-**Why Llama-3?** It's available directly in Workers AI with no API key or external service — one binding in `wrangler.jsonc` is all it takes. The model handles instruction-following well enough to reliably return structured JSON.
+### D1 schema
+
+```sql
+users     — email UNIQUE, PBKDF2 hash stored as "saltHex:hashHex"
+tasks     — user_id FK + ON DELETE CASCADE
+            status CHECK IN ('todo','in_progress','done','cancelled')
+            priority CHECK IN ('low','medium','high','critical')
+            ai_sentiment CHECK IN ('positive','neutral','negative') or NULL
+tags      — UNIQUE(user_id, name) — per-user namespace
+task_tags — composite PK (task_id, tag_id), CASCADE on both FKs
+```
+
+Eight composite indexes: `(user_id, status)`, `(user_id, priority)`, `(user_id, due_date)` keep filter queries fast regardless of table size.
+
+### Password hashing
+
+`bcryptjs` requires Node.js `crypto.pbkdf2()` which does not exist in the Workers V8 runtime. All hashing uses `crypto.subtle` (Web Crypto API — built into every Worker, no import needed):
+
+```
+Algorithm:   PBKDF2-SHA256
+Iterations:  100,000
+Salt:        16 bytes from crypto.getRandomValues() — unique per password
+Storage:     "saltHex:hashHex" (self-contained string)
+Timing:      verifyPassword() always runs even when user not found
+             (uses a dummy hash) — prevents timing-based user enumeration
+```
+
+### Workers AI — how it works
+
+```
+POST /tasks  →  Worker returns 201 immediately (< 50ms)
+                     │
+                     └─ enrichWithAI() fires async (non-blocking)
+                               │
+                        Cloudflare AI Gateway
+                               │
+                        Nearest GPU datacenter
+                        (Meta Llama-3-8b-instruct weights)
+                               │
+                        Prompt sent:
+                        "Analyse this task. Respond ONLY with JSON:
+                         {summary:'...max 100 chars',
+                          sentiment:'positive|neutral|negative'}"
+                               │
+                        ~500ms–2s inference
+                               │
+                        Response handling:
+                        - JSON extracted with regex (model sometimes adds text)
+                        - sentiment validated against allowed values
+                        - summary capped at 200 chars
+                        - if env.AI is undefined (local/test) → skip gracefully
+                               │
+                        D1: UPDATE tasks SET ai_summary=?, ai_sentiment=?
+                        KV: invalidate item cache
+                               │
+                        Next GET /tasks/:id returns enriched data
+```
+
+**Why non-blocking:** Inference takes 500ms–2s. Awaiting it inside the request handler would make every `POST /tasks` slow. Firing after response is sent keeps API latency under 100ms while AI fields appear on the next read — exactly how the UI polls for them.
 
 ### Security
 
 | Layer | Implementation |
 |---|---|
-| Authentication | JWT HS256, 1h expiry, verified on every protected route |
-| Password storage | PBKDF2-SHA256, 100k iterations, unique salt per user |
-| User enumeration prevention | Login always returns same 401 whether email or password is wrong; `verifyPassword` runs even when user not found (dummy hash, same timing) |
-| SQL injection | All queries use D1 parameterized statements — no string concatenation |
-| Rate limiting | 60 req/min/IP via KV, `CF-Connecting-IP` header (not spoofable) |
-| WAF patterns | Regex scan for SQLi, XSS, path traversal on every request |
-| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy` |
-| CORS | Preflight handled before rate limiting (browsers send OPTIONS before every cross-origin request) |
-| Task isolation | Every DB query includes `AND user_id = ?` — users can never access each other's tasks |
+| Auth | JWT HS256, 1h expiry, `jose` library, verified on every protected route |
+| Passwords | PBKDF2-SHA256, 100k iterations, unique salt per user |
+| User enumeration | Login always returns same 401 regardless of which field is wrong |
+| SQL injection | All queries use D1 `.bind()` — zero string interpolation |
+| LIKE injection | `%` and `_` escaped in search input before query |
+| Rate limiting | 60 req/min/IP via KV, keyed on `CF-Connecting-IP` |
+| WAF | SQLi, XSS, path traversal pattern matching on every request |
+| Task isolation | Every query: `AND user_id = ?` — cross-user access impossible |
+| Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
+| CORS | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request |
 
 ---
 
 ## Environment Variables
 
-| Variable | Where set | Purpose |
+| Variable | Where | Description |
 |---|---|---|
-| `JWT_SECRET` | `.dev.vars` (local) / `wrangler secret put` (prod) | JWT signing key |
-| `ENVIRONMENT` | `wrangler.jsonc` vars / `.dev.vars` | `development` or `production` |
+| `JWT_SECRET` | `.dev.vars` locally, `wrangler secret put` in prod | JWT signing key — 32+ chars |
+| `ENVIRONMENT` | `wrangler.jsonc` vars block / `.dev.vars` | `development` or `production` |
 
 ---
 
-## Scripts
+## NPM Scripts
 
 ```bash
-npm run dev              # Local dev server (http://localhost:8787)
-npm run deploy           # Deploy to Cloudflare Workers
-npm test                 # Run vitest integration tests
-npm run type-check       # TypeScript type check (tsc --noEmit)
-npm run cf-typegen       # Regenerate worker-configuration.d.ts from wrangler.jsonc
-npm run db:migrate:local # Apply schema.sql to local D1
-npm run db:migrate:remote# Apply schema.sql to remote D1
+npm run dev               # Local dev server → http://localhost:8787
+npm run deploy            # Deploy to Cloudflare Workers
+npm test                  # Run 35 integration tests
+npm run type-check        # TypeScript check (tsc --noEmit)
+npm run db:migrate:local  # Apply schema.sql to local D1
+npm run db:migrate:remote # Apply schema.sql to remote D1
+npm run cf-typegen        # Regenerate worker-configuration.d.ts from wrangler.jsonc
 ```
+
+---
+
+## Technical Summary
+
+**Why no framework (no Hono)?**
+The assessment required demonstrating HTTP knowledge. A custom router and middleware pipeline makes every decision explicit — request parsing, auth checking, header injection, error propagation. Nothing is hidden by framework magic.
+
+**Why vanilla JS frontend?**
+A single `index.html` with zero build tooling proves a complete product can ship without a framework. The whole frontend is reviewable in one file, loads instantly with no bundle parsing, and has zero supply-chain attack surface.
+
+**Why two wrangler configs?**
+Miniflare (the local Workers runtime used by vitest) cannot simulate Workers AI — it requires Cloudflare's actual GPU network. The test config omits the `ai` binding so Miniflare starts cleanly. The service guards `if (!env.AI) return` so tests pass without AI, and production gets real Llama-3 inference. This is the correct pattern: test your own code's logic, not third-party infrastructure.
+
+**Why KV for caching, not D1?**
+D1 adds ~5–10ms per round trip. KV reads are ~1ms globally. The rate limiter runs on every single request — that cost compounds fast. KV is the right primitive for hot-path reads where eventual consistency is acceptable.

@@ -1,13 +1,5 @@
 // =============================================================================
 // controllers/task.controller.ts
-//
-// WHY REWRITE:
-//   Old: functions took (db, cache, id, request) — userId never passed
-//        Used PUT (full replace) — REST best practice for partial update is PATCH
-//        No query param support (filter by status/priority/search)
-//        No `error: any` guard
-//
-// NEW:
 //   - Every handler receives AuthContext — userId always available
 //   - PATCH replaces PUT — partial updates only
 //   - GET /tasks supports ?status, ?priority, ?search, ?due_before, ?page, ?limit

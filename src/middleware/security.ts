@@ -1,12 +1,6 @@
 // =============================================================================
 // middleware/security.ts
 //
-// WHY REWRITE:
-//   Old: 4 headers only, no CORS, no rate limiting, no WAF, Response mutation
-//        (mutating a Response after creation can silently fail in Workers)
-//
-// NEW — four separate concerns, each a pure function:
-//
 //   1. addSecurityHeaders  — full header set (CSP, HSTS, referrer, permissions)
 //   2. handleCors          — CORS preflight for OPTIONS + headers on all responses
 //   3. checkRateLimit      — sliding window counter stored in KV, 60 req/min/IP

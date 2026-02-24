@@ -1,13 +1,5 @@
 // =============================================================================
 // services/task.service.ts
-//
-// WHY REWRITE:
-//   Old: getAllTasks fetched ALL tasks — not scoped to any user
-//        cache key "all_tasks" was global — user A's tasks showed for user B
-//        Only title was passed to create
-//        Used TASK_CACHE binding name (renamed to CACHE in Step 2)
-//
-// NEW:
 //   - Every function receives userId — all queries are user-scoped
 //   - Cache keys are per-user: "tasks:{userId}" not "all_tasks"
 //   - Full CreateTaskInput / UpdateTaskInput support

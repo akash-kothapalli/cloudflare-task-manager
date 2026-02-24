@@ -1,11 +1,5 @@
 // =============================================================================
 // middleware/error-handler.ts
-//
-// WHY REWRITE:
-//   Old: catches `error` typed as `unknown`, logs a plain string, returns
-//        a manually constructed Response — no structure, no error codes.
-//
-// NEW:
 //   - AppError class: typed errors with HTTP status + code, thrown anywhere
 //     in the app and handled here consistently
 //   - No `any` — error is narrowed properly
