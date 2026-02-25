@@ -2,7 +2,7 @@
 // Vitest resolves these as the raw file content at build time.
 // Without this declaration: TS error "cannot find module '...?raw'"
 
-declare module "*.sql?raw" {
-  const content: string;
-  export default content;
+declare module '*.sql?raw' {
+	const content: string;
+	export default content;
 }

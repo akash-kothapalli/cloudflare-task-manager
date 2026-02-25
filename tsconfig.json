@@ -50,14 +50,6 @@
 		// jsx REMOVED — this is a Workers API project, not React.
 		// "jsx": "react-jsx" was pulling in React types unnecessarily.
 	},
-	"include": [
-		"src/**/*.ts"
-	],
-	"exclude": [
-		"node_modules",
-		"dist",
-		"test",
-		"vitest.config.mts",
-		"worker-configuration.d.ts"
-	]
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules", "dist", "test", "vitest.config.mts", "worker-configuration.d.ts"]
 }

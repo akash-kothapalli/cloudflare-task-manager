@@ -7,12 +7,12 @@
 // `password` is the PBKDF2 hash string, never the plaintext.
 
 export type User = Readonly<{
-  id:         number;
-  email:      string;
-  name:       string;
-  password:   string;   // PBKDF2: "saltHex:hashHex" — never expose in API response
-  created_at: string;
-  updated_at: string;
+	id: number;
+	email: string;
+	name: string;
+	password: string; // PBKDF2: "saltHex:hashHex" — never expose in API response
+	created_at: string;
+	updated_at: string;
 }>;
 
 // ─── API response ─────────────────────────────────────────────────────────────
@@ -25,28 +25,28 @@ export type UserPublic = Omit<User, 'password'>;
 // What we encode inside the token. Keep it small — token is sent on every request.
 
 export interface JwtPayload {
-  userId: number;
-  email:  string;
-  name:   string;
+	userId: number;
+	email: string;
+	name: string;
 }
 
 // ─── Auth inputs ──────────────────────────────────────────────────────────────
 
 export interface RegisterInput {
-  email:    string;
-  name:     string;       // ADDED: users now have a display name
-  password: string;
+	email: string;
+	name: string; // ADDED: users now have a display name
+	password: string;
 }
 
 export interface LoginInput {
-  email:    string;
-  password: string;
+	email: string;
+	password: string;
 }
 
 // ─── Auth response ────────────────────────────────────────────────────────────
 // Returned from POST /auth/register and POST /auth/login
 
 export interface AuthResponse {
-  token: string;
-  user:  UserPublic;
+	token: string;
+	user: UserPublic;
 }

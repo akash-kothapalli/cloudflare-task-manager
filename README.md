@@ -2,7 +2,7 @@
 
 A full-stack task management application built on Cloudflare Workers, D1, KV,and Workers AI. Zero external dependencies — runs entirely on Cloudflare's developer platform.
 
-**Live URL:** `https://cloudflare-task-manager.<your-subdomain>.workers.dev`
+**Live URL:** `https://cloudflare-task-manager.taskflow-akash.workers.dev`
 
 ---
 
@@ -31,15 +31,15 @@ The frontend is a single `public/index.html` — 1,305 lines, zero dependencies,
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|---|---|---|
-| Runtime | Cloudflare Workers (V8 isolate) | Edge execution, zero cold start, globally distributed |
-| Database | D1 (SQLite) | Relational data, FK constraints, composite indexes |
-| Cache | KV Store | Per-user task cache + sliding-window rate limiting |
-| AI | Workers AI — Llama-3-8b-instruct | Task summarisation + sentiment, no external API key |
-| Frontend | Vanilla HTML/JS — `public/index.html` | Zero build step, served as Workers static asset |
-| Auth | JWT (jose) + PBKDF2-SHA256 | Web Crypto only — no Node.js crypto dependency |
-| Language | TypeScript strict mode | No `any`, Readonly types, discriminated unions |
+| Layer    | Technology                            | Why                                                   |
+| -------- | ------------------------------------- | ----------------------------------------------------- |
+| Runtime  | Cloudflare Workers (V8 isolate)       | Edge execution, zero cold start, globally distributed |
+| Database | D1 (SQLite)                           | Relational data, FK constraints, composite indexes    |
+| Cache    | KV Store                              | Per-user task cache + sliding-window rate limiting    |
+| AI       | Workers AI — Llama-3-8b-instruct      | Task summarisation + sentiment, no external API key   |
+| Frontend | Vanilla HTML/JS — `public/index.html` | Zero build step, served as Workers static asset       |
+| Auth     | JWT (jose) + PBKDF2-SHA256            | Web Crypto only — no Node.js crypto dependency        |
+| Language | TypeScript strict mode                | No `any`, Readonly types, discriminated unions        |
 
 ---
 
@@ -143,11 +143,13 @@ ENVIRONMENT=development
 ```
 
 Generate a secure value — Windows PowerShell:
+
 ```powershell
 -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
 ```
 
 Mac/Linux:
+
 ```bash
 openssl rand -hex 32
 ```
@@ -180,6 +182,7 @@ Open `http://localhost:8787` — the full UI loads. Register an account, create 
 **Base URL (local):** `http://localhost:8787`
 
 All responses use a consistent envelope:
+
 ```json
 { "success": true,  "data": { ... } }
 { "success": false, "error": { "code": "ERROR_CODE", "message": "..." } }
@@ -192,6 +195,7 @@ Protected routes require: `Authorization: Bearer <token>`
 ### Auth
 
 #### `POST /auth/register`
+
 Create a new account.
 
 ```bash
@@ -201,17 +205,19 @@ curl -X POST http://localhost:8787/auth/register \
 ```
 
 **Response 201:**
+
 ```json
 {
-  "success": true,
-  "data": {
-    "token": "eyJhbGc...",
-    "user": { "id": 1, "email": "alice@example.com", "name": "Alice", "created_at": "...", "updated_at": "..." }
-  }
+	"success": true,
+	"data": {
+		"token": "eyJhbGc...",
+		"user": { "id": 1, "email": "alice@example.com", "name": "Alice", "created_at": "...", "updated_at": "..." }
+	}
 }
 ```
 
 **Validation errors:**
+
 - `400` — email missing or invalid format
 - `400` — name missing
 - `400` — password under 8 characters
@@ -220,6 +226,7 @@ curl -X POST http://localhost:8787/auth/register \
 ---
 
 #### `POST /auth/login`
+
 Sign in and get a token.
 
 ```bash
@@ -229,13 +236,14 @@ curl -X POST http://localhost:8787/auth/login \
 ```
 
 **Response 200:**
+
 ```json
 {
-  "success": true,
-  "data": {
-    "token": "eyJhbGc...",
-    "user": { "id": 1, "email": "alice@example.com", "name": "Alice" }
-  }
+	"success": true,
+	"data": {
+		"token": "eyJhbGc...",
+		"user": { "id": 1, "email": "alice@example.com", "name": "Alice" }
+	}
 }
 ```
 
@@ -244,6 +252,7 @@ curl -X POST http://localhost:8787/auth/login \
 ---
 
 #### `GET /auth/me` 🔒
+
 Get the current user's profile.
 
 ```bash
@@ -252,6 +261,7 @@ curl http://localhost:8787/auth/me \
 ```
 
 ---
+
 Validation: email format required, name required, password minimum 8 characters. Duplicate email returns `409`. Wrong credentials return `401` with identical message whether email or password is wrong (prevents user enumeration).
 
 ---
@@ -259,6 +269,7 @@ Validation: email format required, name required, password minimum 8 characters.
 ### Tasks
 
 #### `GET /tasks` 🔒
+
 List all tasks for the authenticated user. Supports filtering and pagination.
 
 ```bash
@@ -286,43 +297,45 @@ curl "http://localhost:8787/tasks?status=todo&priority=critical&page=1&limit=5" 
 
 **Query parameters:**
 
-| Param | Values | Default |
-|---|---|---|
-| `status` | `todo` `in_progress` `done` `cancelled` | all |
-| `priority` | `low` `medium` `high` `critical` | all |
-| `search` | any string | none |
-| `due_before` | `YYYY-MM-DD` | none |
-| `page` | integer ≥ 1 | `1` |
-| `limit` | 1–100 | `20` |
+| Param        | Values                                  | Default |
+| ------------ | --------------------------------------- | ------- |
+| `status`     | `todo` `in_progress` `done` `cancelled` | all     |
+| `priority`   | `low` `medium` `high` `critical`        | all     |
+| `search`     | any string                              | none    |
+| `due_before` | `YYYY-MM-DD`                            | none    |
+| `page`       | integer ≥ 1                             | `1`     |
+| `limit`      | 1–100                                   | `20`    |
 
 **Response 200:**
+
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "id": 3,
-      "user_id": 1,
-      "title": "Build task CRUD API",
-      "description": "GET, POST, PATCH, DELETE endpoints",
-      "status": "in_progress",
-      "priority": "high",
-      "due_date": "2026-03-01",
-      "completed_at": null,
-      "ai_summary": "Implementing RESTful task management endpoints",
-      "ai_sentiment": "positive",
-      "tags": [{ "id": 1, "name": "work", "color": "#6366f1" }],
-      "created_at": "2026-02-23T10:00:00Z",
-      "updated_at": "2026-02-23T10:00:00Z"
-    }
-  ],
-  "meta": { "page": 1, "limit": 20, "total": 6, "hasMore": false }
+	"success": true,
+	"data": [
+		{
+			"id": 3,
+			"user_id": 1,
+			"title": "Build task CRUD API",
+			"description": "GET, POST, PATCH, DELETE endpoints",
+			"status": "in_progress",
+			"priority": "high",
+			"due_date": "2026-03-01",
+			"completed_at": null,
+			"ai_summary": "Implementing RESTful task management endpoints",
+			"ai_sentiment": "positive",
+			"tags": [{ "id": 1, "name": "work", "color": "#6366f1" }],
+			"created_at": "2026-02-23T10:00:00Z",
+			"updated_at": "2026-02-23T10:00:00Z"
+		}
+	],
+	"meta": { "page": 1, "limit": 20, "total": 6, "hasMore": false }
 }
 ```
 
 ---
 
 #### `GET /tasks/:id` 🔒
+
 Get a single task by ID.
 
 ```bash
@@ -334,6 +347,7 @@ curl http://localhost:8787/tasks/3 -H "Authorization: Bearer <token>"
 ---
 
 #### `POST /tasks` 🔒
+
 Create a new task.
 
 ```bash
@@ -352,14 +366,14 @@ curl -X POST http://localhost:8787/tasks \
 
 **Fields:**
 
-| Field | Required | Type | Values |
-|---|---|---|---|
-| `title` | ✅ | string | max 255 chars |
-| `description` | ❌ | string | max 5000 chars |
-| `status` | ❌ | string | `todo` `in_progress` `done` `cancelled` (default: `todo`) |
-| `priority` | ❌ | string | `low` `medium` `high` `critical` (default: `medium`) |
-| `due_date` | ❌ | string | `YYYY-MM-DD` |
-| `tag_ids` | ❌ | number[] | array of existing tag IDs |
+| Field         | Required | Type     | Values                                                    |
+| ------------- | -------- | -------- | --------------------------------------------------------- |
+| `title`       | ✅       | string   | max 255 chars                                             |
+| `description` | ❌       | string   | max 5000 chars                                            |
+| `status`      | ❌       | string   | `todo` `in_progress` `done` `cancelled` (default: `todo`) |
+| `priority`    | ❌       | string   | `low` `medium` `high` `critical` (default: `medium`)      |
+| `due_date`    | ❌       | string   | `YYYY-MM-DD`                                              |
+| `tag_ids`     | ❌       | number[] | array of existing tag IDs                                 |
 
 **Response 201:** Full task object with tags
 
@@ -368,6 +382,7 @@ curl -X POST http://localhost:8787/tasks \
 ---
 
 #### `PATCH /tasks/:id` 🔒
+
 Partially update a task. Only send the fields you want to change.
 
 ```bash
@@ -403,6 +418,7 @@ curl -X PATCH http://localhost:8787/tasks/3 \
 ---
 
 #### `DELETE /tasks/:id` 🔒
+
 Delete a task permanently.
 
 ```bash
@@ -413,6 +429,7 @@ curl -X DELETE http://localhost:8787/tasks/3 \
 **Response 200:** `{ "success": true, "data": { "message": "Task 3 deleted successfully" } }`
 
 **Partial update**
+
 ```bash
 # Mark done — completed_at is auto-set by the DB
 curl -X PATCH http://localhost:8787/tasks/1 \
@@ -432,6 +449,7 @@ curl -X PATCH http://localhost:8787/tasks/1 \
 ### Tags
 
 #### `GET /tags` 🔒
+
 List all tags created by the authenticated user.
 
 ```bash
@@ -439,6 +457,7 @@ curl http://localhost:8787/tags -H "Authorization: Bearer <token>"
 ```
 
 #### `POST /tags` 🔒
+
 Create a reusable tag.
 
 ```bash
@@ -448,14 +467,15 @@ curl -X POST http://localhost:8787/tags \
   -d '{"name": "urgent", "color": "#ef4444"}'
 ```
 
-| Field | Required | Type |
-|---|---|---|
-| `name` | ✅ | string, max 50 chars |
-| `color` | ❌ | hex color e.g. `#6366f1` (default) |
+| Field   | Required | Type                               |
+| ------- | -------- | ---------------------------------- |
+| `name`  | ✅       | string, max 50 chars               |
+| `color` | ❌       | hex color e.g. `#6366f1` (default) |
 
 **Errors:** `409` if tag name already exists for this user
 
 #### `DELETE /tags/:id` 🔒
+
 Delete a tag. Automatically removed from all tasks.
 
 ```bash
@@ -473,18 +493,18 @@ npm test
 
 39 integration tests run inside a real Workers V8 runtime via `@cloudflare/vitest-pool-workers`. The real `schema.sql` is loaded before each run via `?raw` import — no hardcoded schema in test files.
 
-| Suite | Tests |
-|---|---|
-| Health check | 1 |
-| Register | 5 |
-| Login | 3 |
-| Auth/Me | 3 |
-| Task Create | 5 |
-| Task Read | 6 |
-| Task Update | 4 |
-| Tags | 6 |
-| Security headers | 4 |
-| Task Delete | 2 |
+| Suite            | Tests |
+| ---------------- | ----- |
+| Health check     | 1     |
+| Register         | 5     |
+| Login            | 3     |
+| Auth/Me          | 3     |
+| Task Create      | 5     |
+| Task Read        | 6     |
+| Task Update      | 4     |
+| Tags             | 6     |
+| Security headers | 4     |
+| Task Delete      | 2     |
 
 ---
 
@@ -512,6 +532,7 @@ npm run deploy
 Output: `Deployed to https://cloudflare-task-manager.<subdomain>.workers.dev`
 
 Cloudflare automatically:
+
 - Serves `public/index.html` at the root URL
 - Routes `/auth/*`, `/tasks/*`, `/tags/*`, `/health` to the Worker
 - Both UI and API on the same domain — no CORS issues at all
@@ -563,6 +584,7 @@ Request arrives
 ### KV Store — two use cases
 
 **Task cache (per-user isolation):**
+
 ```
 Key pattern:  tasks:{userId}          list cache
               task:{userId}:{taskId}  item cache
@@ -572,6 +594,7 @@ Why per-user: a shared "all_tasks" key would mix users' data
 ```
 
 **Rate limiting (sliding window):**
+
 ```
 Key:   rl:{ip}
 Value: request count
@@ -641,27 +664,27 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 
 ### Security
 
-| Layer | Implementation |
-|---|---|
-| Auth | JWT HS256, 1h expiry, `jose` library, verified on every protected route |
-| Passwords | PBKDF2-SHA256, 100k iterations, unique salt per user |
-| User enumeration | Login always returns same 401 regardless of which field is wrong |
-| SQL injection | All queries use D1 `.bind()` — zero string interpolation |
-| LIKE injection | `%` and `_` escaped in search input before query |
-| Rate limiting | 60 req/min/IP via KV, keyed on `CF-Connecting-IP` |
-| WAF | SQLi, XSS, path traversal pattern matching on every request |
-| Task isolation | Every query: `AND user_id = ?` — cross-user access impossible |
+| Layer            | Implementation                                                                                                                                                                                                                                                                                           |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth             | JWT HS256, 1h expiry, `jose` library, verified on every protected route                                                                                                                                                                                                                                  |
+| Passwords        | PBKDF2-SHA256, 100k iterations, unique salt per user                                                                                                                                                                                                                                                     |
+| User enumeration | Login always returns same 401 regardless of which field is wrong                                                                                                                                                                                                                                         |
+| SQL injection    | All queries use D1 `.bind()` — zero string interpolation                                                                                                                                                                                                                                                 |
+| LIKE injection   | `%` and `_` escaped in search input before query                                                                                                                                                                                                                                                         |
+| Rate limiting    | 60 req/min/IP via KV, keyed on `CF-Connecting-IP`                                                                                                                                                                                                                                                        |
+| WAF              | SQLi, XSS, path traversal pattern matching on every request                                                                                                                                                                                                                                              |
+| Task isolation   | Every query: `AND user_id = ?` — cross-user access impossible                                                                                                                                                                                                                                            |
 | Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
-| CORS | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request |
+| CORS             | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request                                                                                                                                                                                                         |
 
 ---
 
 ## Environment Variables
 
-| Variable | Where | Description |
-|---|---|---|
-| `JWT_SECRET` | `.dev.vars` locally, `wrangler secret put` in prod | JWT signing key — 32+ chars |
-| `ENVIRONMENT` | `wrangler.jsonc` vars block / `.dev.vars` | `development` or `production` |
+| Variable      | Where                                              | Description                   |
+| ------------- | -------------------------------------------------- | ----------------------------- |
+| `JWT_SECRET`  | `.dev.vars` locally, `wrangler secret put` in prod | JWT signing key — 32+ chars   |
+| `ENVIRONMENT` | `wrangler.jsonc` vars block / `.dev.vars`          | `development` or `production` |
 
 ---
 
