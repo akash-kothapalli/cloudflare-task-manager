@@ -100,7 +100,7 @@ cloudflare-task-manager/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/<your-username>/cloudflare-task-manager.git
+git clone https://github.com/akash-kothapalli/cloudflare-task-manager.git
 cd cloudflare-task-manager
 npm install
 ```
