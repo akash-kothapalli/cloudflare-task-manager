@@ -103,15 +103,43 @@ export async function checkRateLimit(request: Request, cache: KVNamespace): Prom
 //   XSS           — <script>, javascript: URLs, event handlers
 //   Path traversal — ../ sequences trying to escape the app root
 
-const SQL_INJECTION_PATTERN = /(\bunion\b.*\bselect\b|'\s*(or|and)\s*'|--\s|\/\*|\*\/|;\s*drop|;\s*delete|;\s*insert|xp_|exec\s*\()/i;
+const SQL_INJECTION_PATTERN = /(\bunion\b.*\bselect\b|'\s*(or|and)\s*'|--(?:\s|$)|\/\*|\*\/|;\s*drop|;\s*delete|;\s*insert|xp_|exec\s*\()/i;
 const XSS_PATTERN = /(<script|javascript:|on\w+\s*=|<\s*img[^>]*onerror|<iframe|<object|<embed)/i;
-const PATH_TRAVERSAL = /(\.\.(\/|\\)|%2e%2e%2f|%2e%2e\/|\.\.%2f)/i;
+const PATH_TRAVERSAL = /(%2e%2e[/\\]|[/\\]%2e%2e)/i; // encoded dots — literal "../" is normalised away by Request() before the Worker sees it
+const VALID_PATH_PREFIXES = ['/tasks', '/tags', '/auth', '/health']; // all known API routes
 
-export function detectMaliciousInput(request: Request): Response | null {
+export async function detectMaliciousInput(request: Request): Promise<Response | null> {
 	const url = new URL(request.url);
-	const toCheck = url.pathname + url.search;
+	// Decode percent-encoding so patterns like %27 (') are caught by SQLi regex
+	const decoded = decodeURIComponent(url.pathname + url.search);
 
-	if (SQL_INJECTION_PATTERN.test(toCheck)) {
+	// Also scan request body for XSS — clone so the original stream stays intact
+	let bodyText = '';
+	if (request.method !== 'GET' && request.method !== 'HEAD') {
+		try {
+			bodyText = await request.clone().text();
+		} catch {
+			// Body unreadable — skip body scan, continue with URL-only check
+		}
+	}
+
+	// Detect path traversal two ways:
+	//   1. Percent-encoded dots (%2e%2e) — literal "../" is normalised away by the
+	//      Request constructor before the Worker receives request.url, but encoded
+	//      variants survive and can still be exploited.
+	//   2. Normalised path escapes the known API root — e.g. /tasks/../../../etc/passwd
+	//      normalises to /etc/passwd which doesn't match any valid prefix.
+	const pathname = url.pathname;
+	const isEncodedTraversal = PATH_TRAVERSAL.test(url.href);
+	const isEscapedRoot = !VALID_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+	if (isEncodedTraversal || isEscapedRoot) {
+		return new Response(JSON.stringify({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden' } }), {
+			status: 403,
+			headers: { 'Content-Type': 'application/json' },
+		});
+	}
+
+	if (SQL_INJECTION_PATTERN.test(decoded)) {
 		console.warn(
 			JSON.stringify({
 				level: 'warn',
@@ -127,7 +155,7 @@ export function detectMaliciousInput(request: Request): Response | null {
 		});
 	}
 
-	if (XSS_PATTERN.test(toCheck)) {
+	if (XSS_PATTERN.test(decoded) || XSS_PATTERN.test(bodyText)) {
 		console.warn(
 			JSON.stringify({
 				level: 'warn',
@@ -136,13 +164,6 @@ export function detectMaliciousInput(request: Request): Response | null {
 				path: url.pathname,
 			}),
 		);
-		return new Response(JSON.stringify({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden' } }), {
-			status: 403,
-			headers: { 'Content-Type': 'application/json' },
-		});
-	}
-
-	if (PATH_TRAVERSAL.test(toCheck)) {
 		return new Response(JSON.stringify({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden' } }), {
 			status: 403,
 			headers: { 'Content-Type': 'application/json' },

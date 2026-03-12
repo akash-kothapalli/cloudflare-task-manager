@@ -11,6 +11,7 @@ export type User = Readonly<{
 	email: string;
 	name: string;
 	password: string; // PBKDF2: "saltHex:hashHex" — never expose in API response
+	is_verified: number; // 0 = unverified, 1 = verified
 	created_at: string;
 	updated_at: string;
 }>;
@@ -34,13 +35,18 @@ export interface JwtPayload {
 
 export interface RegisterInput {
 	email: string;
-	name: string; // ADDED: users now have a display name
+	name: string;
 	password: string;
 }
 
 export interface LoginInput {
 	email: string;
 	password: string;
+}
+
+export interface VerifyOtpInput {
+	email: string;
+	otp: string;
 }
 
 // ─── Auth response ────────────────────────────────────────────────────────────

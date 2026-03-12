@@ -14,9 +14,15 @@ CREATE TABLE IF NOT EXISTS users (
   email        TEXT    NOT NULL UNIQUE,
   name         TEXT    NOT NULL DEFAULT '',        -- display name
   password     TEXT    NOT NULL,                   -- PBKDF2 hash: "saltHex:hashHex"
+  is_verified  INTEGER NOT NULL DEFAULT 0,         -- 0 = unverified, 1 = email verified
   created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Migration: add is_verified to existing deployments
+-- Safe to run multiple times (ALTER TABLE ignores if column exists in SQLite via workaround)
+-- Run after initial schema creation on existing DBs:
+-- ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;
 
 -- Fast lookup by email (used on every login)
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

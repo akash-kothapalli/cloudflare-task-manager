@@ -32,7 +32,7 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		return withErrorHandling(async () => {
 			// 1. WAF — block obvious injection attempts before any processing
-			const wafBlock = detectMaliciousInput(request);
+			const wafBlock = await detectMaliciousInput(request);
 			if (wafBlock) return addSecurityHeaders(wafBlock);
 
 			// 2. CORS preflight — OPTIONS must return 204 before rate limit check

@@ -58,7 +58,9 @@ cloudflare-task-manager/
 │   ├── services/               ← Business logic, caching, AI enrichment
 │   │   ├── auth.service.ts
 │   │   ├── task.service.ts
-│   │   └── tag.service.ts
+│   │   ├── tag.service.ts
+│   │   ├── email-validation.service.ts  ← MX record check (production) + format validation
+│   │   └── otp.service.ts              ← OTP generation, KV storage, verification + expiry
 │   ├── repositories/           ← Data layer: SQL only, parameterised queries, row mapping
 │   │   ├── user.repository.ts
 │   │   ├── task.repository.ts
@@ -72,14 +74,16 @@ cloudflare-task-manager/
 │   │   └── index.ts            ← Clean router — no if-chain anti-pattern
 │   ├── types/                  ← Strict TypeScript interfaces, no any
 │   ├── utils/
-│   │   ├── jwt.ts              ← PBKDF2 hashing + JWT sign/verify
+│   │   ├── jwt.ts              ← PBKDF2 hashing + JWT sign/verify (access + refresh tokens)
 │   │   ├── response.ts         ← Typed API envelope: ok(), created(), badRequest()...
 │   │   └── validation.ts       ← Central validation, ValidationResult<T> pattern
 │   └── db/
 │       ├── schema.sql          ← 4 tables, 8 indexes, CHECK constraints
 │       └── seed.sql            ← Dev test data (2 users, 4 tags, 8 tasks)
+├── migrations/
+│   └── 002_add_is_verified.sql ← ALTER TABLE users ADD COLUMN is_verified (existing DBs)
 ├── test/
-│   └── index.spec.ts           ← 35 integration tests (vitest-pool-workers)
+│   └── index.spec.ts           ← 53 integration tests (vitest-pool-workers)
 ├── wrangler.jsonc              ← Production config (DB + KV + AI + Assets)
 ├── wrangler.test.jsonc         ← Test config (no AI binding — Miniflare limitation)
 └── vitest.config.mts           ← Points at wrangler.test.jsonc for local tests
@@ -139,6 +143,7 @@ Copy the `id` into **both** `wrangler.jsonc` and `wrangler.test.jsonc`:
 
 ```
 JWT_SECRET=your-secret-minimum-32-characters-long
+REFRESH_TOKEN_SECRET=another-secret-minimum-32-characters-long
 ENVIRONMENT=development
 ```
 
@@ -196,7 +201,7 @@ Protected routes require: `Authorization: Bearer <token>`
 
 #### `POST /auth/register`
 
-Create a new account.
+Create a new account. Sends a 6-digit OTP to the provided email for verification.
 
 ```bash
 curl -X POST http://localhost:8787/auth/register \
@@ -210,11 +215,13 @@ curl -X POST http://localhost:8787/auth/register \
 {
 	"success": true,
 	"data": {
-		"token": "eyJhbGc...",
-		"user": { "id": 1, "email": "alice@example.com", "name": "Alice", "created_at": "...", "updated_at": "..." }
+		"requiresVerification": true,
+		"dev_otp": "123456"
 	}
 }
 ```
+
+> `dev_otp` is only returned when `ENVIRONMENT !== 'production'`. In production, the OTP is sent via email only.
 
 **Validation errors:**
 
@@ -222,6 +229,33 @@ curl -X POST http://localhost:8787/auth/register \
 - `400` — name missing
 - `400` — password under 8 characters
 - `409` — email already registered
+
+---
+
+#### `POST /auth/verify-otp`
+
+Verify the OTP received after registration. Returns tokens on success.
+
+```bash
+curl -X POST http://localhost:8787/auth/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","otp":"123456"}'
+```
+
+**Response 200:**
+
+```json
+{
+	"success": true,
+	"data": {
+		"token": "eyJhbGc...",
+		"refreshToken": "eyJhbGc...",
+		"user": { "id": 1, "email": "alice@example.com", "name": "Alice", "created_at": "...", "updated_at": "..." }
+	}
+}
+```
+
+**Errors:** `400` wrong or expired OTP, `400` OTP must be 6 digits
 
 ---
 
@@ -242,12 +276,16 @@ curl -X POST http://localhost:8787/auth/login \
 	"success": true,
 	"data": {
 		"token": "eyJhbGc...",
+		"refreshToken": "eyJhbGc...",
 		"user": { "id": 1, "email": "alice@example.com", "name": "Alice" }
 	}
 }
 ```
 
+> `refreshToken` is also set as an `HttpOnly` cookie (`refresh_token`) for browser clients. The cookie is used automatically by `POST /auth/refresh`.
+
 **Errors:** `401` for wrong email or password (same error — prevents user enumeration)
+**Errors:** `403` if account exists but email is not yet verified
 
 ---
 
@@ -259,6 +297,37 @@ Get the current user's profile.
 curl http://localhost:8787/auth/me \
   -H "Authorization: Bearer <token>"
 ```
+
+---
+
+#### `POST /auth/refresh`
+
+Exchange a valid refresh token for a new access token. Accepts the token in the request body or via the `refresh_token` HttpOnly cookie set at login.
+
+```bash
+# Via request body
+curl -X POST http://localhost:8787/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"eyJhbGc..."}'
+
+# Via cookie (browser — sent automatically)
+curl -X POST http://localhost:8787/auth/refresh \
+  --cookie "refresh_token=eyJhbGc..."
+```
+
+**Response 200:**
+
+```json
+{
+	"success": true,
+	"data": {
+		"token": "eyJhbGc...",
+		"refreshToken": "eyJhbGc..."
+	}
+}
+```
+
+**Errors:** `401` missing token, `401` tampered or expired token
 
 ---
 
@@ -474,6 +543,31 @@ curl -X POST http://localhost:8787/tags \
 
 **Errors:** `409` if tag name already exists for this user
 
+#### `PATCH /tags/:id` 🔒
+
+Rename or recolor an existing tag. Send only the fields you want to change — at least one is required.
+
+```bash
+# Rename
+curl -X PATCH http://localhost:8787/tags/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "urgent"}'
+
+# Recolor
+curl -X PATCH http://localhost:8787/tags/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"color": "#ef4444"}'
+```
+
+| Field   | Required | Validation |
+| ------- | -------- | ---------- |
+| `name`  | ❌       | string, max 50 chars |
+| `color` | ❌       | valid hex e.g. `#ff0000` |
+
+**Errors:** `400` invalid hex color, `400` empty body, `404` tag not found
+
 #### `DELETE /tags/:id` 🔒
 
 Delete a tag. Automatically removed from all tasks.
@@ -491,20 +585,20 @@ curl -X DELETE http://localhost:8787/tags/1 \
 npm test
 ```
 
-39 integration tests run inside a real Workers V8 runtime via `@cloudflare/vitest-pool-workers`. The real `schema.sql` is loaded before each run via `?raw` import — no hardcoded schema in test files.
+53 integration tests run inside a real Workers V8 runtime via `@cloudflare/vitest-pool-workers`. The real `schema.sql` is loaded before each run via `?raw` import — no hardcoded schema in test files.
 
-| Suite            | Tests |
-| ---------------- | ----- |
-| Health check     | 1     |
-| Register         | 5     |
-| Login            | 3     |
-| Auth/Me          | 3     |
-| Task Create      | 5     |
-| Task Read        | 6     |
-| Task Update      | 4     |
-| Tags             | 6     |
-| Security headers | 4     |
-| Task Delete      | 2     |
+| Suite | Tests |
+| ------------------------------------ | ----- |
+| Health check | 1 |
+| Auth — Register + OTP flow | 8 |
+| Auth — Login | 3 |
+| Auth — Refresh token | 4 |
+| Auth — Me | 3 |
+| Tasks — CRUD | 9 |
+| Tags — CRUD including PATCH | 10 |
+| Security — Cross-user data isolation | 8 |
+| Security headers | 4 |
+| WAF — Malicious input detection | 3 |
 
 ---
 
@@ -516,11 +610,12 @@ npm test
 npm run db:migrate:remote
 ```
 
-### 2. Set production secret
+### 2. Set production secrets
 
 ```bash
 npx wrangler secret put JWT_SECRET
-# Paste your generated secret at the prompt
+npx wrangler secret put REFRESH_TOKEN_SECRET
+# Paste your generated secrets at each prompt
 ```
 
 ### 3. Deploy
@@ -666,13 +761,13 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 
 | Layer            | Implementation                                                                                                                                                                                                                                                                                           |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth             | JWT HS256, 1h expiry, `jose` library, verified on every protected route                                                                                                                                                                                                                                  |
+| Auth             | Access token: JWT HS256, 15min expiry. Refresh token: JWT HS256, 7-day expiry, HttpOnly cookie + body. Both verified on every protected route |
 | Passwords        | PBKDF2-SHA256, 100k iterations, unique salt per user                                                                                                                                                                                                                                                     |
 | User enumeration | Login always returns same 401 regardless of which field is wrong                                                                                                                                                                                                                                         |
 | SQL injection    | All queries use D1 `.bind()` — zero string interpolation                                                                                                                                                                                                                                                 |
 | LIKE injection   | `%` and `_` escaped in search input before query                                                                                                                                                                                                                                                         |
 | Rate limiting    | 60 req/min/IP via KV, keyed on `CF-Connecting-IP`                                                                                                                                                                                                                                                        |
-| WAF              | SQLi, XSS, path traversal pattern matching on every request                                                                                                                                                                                                                                              |
+| WAF              | SQLi, XSS (URL + request body), path traversal — regex + escaped-root detection on every request |
 | Task isolation   | Every query: `AND user_id = ?` — cross-user access impossible                                                                                                                                                                                                                                            |
 | Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
 | CORS             | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request                                                                                                                                                                                                         |
@@ -681,10 +776,11 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 
 ## Environment Variables
 
-| Variable      | Where                                              | Description                   |
-| ------------- | -------------------------------------------------- | ----------------------------- |
-| `JWT_SECRET`  | `.dev.vars` locally, `wrangler secret put` in prod | JWT signing key — 32+ chars   |
-| `ENVIRONMENT` | `wrangler.jsonc` vars block / `.dev.vars`          | `development` or `production` |
+| Variable               | Where                                              | Description                          |
+| ---------------------- | -------------------------------------------------- | ------------------------------------ |
+| `JWT_SECRET`           | `.dev.vars` locally, `wrangler secret put` in prod | Access token signing key — 32+ chars |
+| `REFRESH_TOKEN_SECRET` | `.dev.vars` locally, `wrangler secret put` in prod | Refresh token signing key — 32+ chars |
+| `ENVIRONMENT`          | `wrangler.jsonc` vars block / `.dev.vars`          | `development` or `production`        |
 
 ---
 
@@ -693,7 +789,7 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 ```bash
 npm run dev               # Local dev server → http://localhost:8787
 npm run deploy            # Deploy to Cloudflare Workers
-npm test                  # Run 35 integration tests
+npm test                  # Run 53 integration tests
 npm run type-check        # TypeScript check (tsc --noEmit)
 npm run db:migrate:local  # Apply schema.sql to local D1
 npm run db:migrate:remote # Apply schema.sql to remote D1

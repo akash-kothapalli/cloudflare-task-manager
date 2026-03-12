@@ -19,6 +19,7 @@ function mapRow(row: Record<string, unknown>): User {
 		email: String(row.email),
 		name: String(row.name),
 		password: String(row.password),
+		is_verified: Number(row.is_verified ?? 0),
 		created_at: String(row.created_at),
 		updated_at: String(row.updated_at),
 	};
@@ -60,4 +61,15 @@ export async function updateUser(db: D1Database, id: number, name?: string): Pro
 		.run();
 
 	return findById(db, id);
+}
+
+/**
+ * Mark a user's email as verified.
+ * Called after successful OTP verification.
+ */
+export async function markUserVerified(db: D1Database, email: string): Promise<void> {
+	await db
+		.prepare("UPDATE users SET is_verified = 1, updated_at = datetime('now') WHERE email = ?")
+		.bind(email.toLowerCase())
+		.run();
 }

@@ -160,7 +160,7 @@ export async function create(db: D1Database, userId: number, input: CreateTaskIn
 
 	// Attach tags if provided
 	if (input.tag_ids && input.tag_ids.length > 0) {
-		await attachTagsToTask(db, taskId, input.tag_ids);
+		await attachTagsToTask(db, taskId, input.tag_ids, userId);
 	}
 
 	const task = await findById(db, taskId, userId);
@@ -226,7 +226,7 @@ export async function update(db: D1Database, id: number, userId: number, input: 
 	if (input.tag_ids !== undefined) {
 		await db.prepare('DELETE FROM task_tags WHERE task_id = ?').bind(id).run();
 		if (input.tag_ids.length > 0) {
-			await attachTagsToTask(db, id, input.tag_ids);
+			await attachTagsToTask(db, id, input.tag_ids, userId);
 		}
 	}
 
@@ -260,9 +260,24 @@ export async function updateAiFields(db: D1Database, id: number, userId: number,
 }
 
 // ─── Helper: attach tags to a task ────────────────────────────────────────────
+// SECURITY: only attach tags that belong to the same user — prevents IDOR.
+// Without the ownership check, a user could attach another user's tag IDs.
 
-async function attachTagsToTask(db: D1Database, taskId: number, tagIds: number[]): Promise<void> {
+async function attachTagsToTask(db: D1Database, taskId: number, tagIds: number[], userId: number): Promise<void> {
+	if (tagIds.length === 0) return;
+
+	// Verify every tag belongs to userId before inserting.
+	// Parameterised IN clause — never interpolate user input.
+	const placeholders = tagIds.map(() => '?').join(', ');
+	const { results } = await db
+		.prepare(`SELECT id FROM tags WHERE id IN (${placeholders}) AND user_id = ?`)
+		.bind(...tagIds, userId)
+		.all<{ id: number }>();
+
+	const ownedTagIds = results.map((r) => r.id);
+	if (ownedTagIds.length === 0) return;
+
 	// D1 doesn't support multi-row INSERT in a single prepare — use batch
-	const stmts = tagIds.map((tagId) => db.prepare('INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)').bind(taskId, tagId));
+	const stmts = ownedTagIds.map((tagId) => db.prepare('INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)').bind(taskId, tagId));
 	await db.batch(stmts);
 }
