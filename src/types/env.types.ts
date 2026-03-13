@@ -23,9 +23,9 @@ export interface Env {
 	// Email — set via: wrangler secret put EMAIL_FROM (optional, defaults to onboarding@resend.dev)
 	EMAIL_FROM?: string;
 
-	// Resend API key — set via: wrangler secret put RESEND_API_KEY
-	// Sign up free at https://resend.com — 3,000 emails/month, no domain needed
-	RESEND_API_KEY?: string;
+	// Brevo API key — set via: wrangler secret put BREVO_API_KEY
+	// Sign up free at https://brevo.com — 300 emails/day, sends to ANY email, no domain needed
+	BREVO_API_KEY?: string;
 
 	// Var — set in wrangler.jsonc "vars" block
 	ENVIRONMENT: string;

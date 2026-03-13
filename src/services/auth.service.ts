@@ -10,7 +10,7 @@
 //   This eliminates the "silent 401 after 1 hour" issue from the old design.
 // =============================================================================
 
-import { findByEmail, createUser, findById, markUserVerified } from '../repositories/user.repository';
+import { findByEmail, createUser, findById, markUserVerified, updatePassword } from '../repositories/user.repository';
 import { generateToken, hashPassword, verifyPassword, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { AppError } from '../middleware/error-handler';
 import { generateAndStoreOtp, sendOtpEmail, verifyOtp } from './otp.service';import { validateEmailFull } from './email-validation.service';
@@ -61,10 +61,10 @@ async function issueTokenPair(user: { id: number; email: string; name: string },
 	return { token, refreshToken };
 }
 
-// Returns dev_otp only when RESEND_API_KEY is not configured and not production.
+// Returns dev_otp only when BREVO_API_KEY is not configured and not production.
 function getDevOtpIfApplicable(env: Env, otp: string): string | undefined {
 	if (env.ENVIRONMENT === 'production') return undefined;
-	if (env.RESEND_API_KEY) return undefined;
+	if (env.BREVO_API_KEY) return undefined;
 	return otp;
 }
 
@@ -117,15 +117,13 @@ export async function verifyOtpAndLogin(
 	const user = await findByEmail(db, email);
 	if (!user) throw AppError.badRequest('Invalid or expired verification code');
 
-	if (user.is_verified === 1) {
-		const { token, refreshToken } = await issueTokenPair(user, env);
-		return { token, refreshToken, user: toPublic(user) };
-	}
-
+	// Always verify OTP — even for already-verified users (forgot-password flow)
 	const isValid = await verifyOtp(env.CACHE, email, otp);
 	if (!isValid) throw AppError.badRequest('Invalid or expired verification code');
 
-	await markUserVerified(db, email);
+	if (user.is_verified === 0) {
+		await markUserVerified(db, email);
+	}
 
 	const verifiedUser = await findByEmail(db, email);
 	if (!verifiedUser) throw AppError.internal('User not found after verification');
@@ -196,6 +194,63 @@ export async function resendOtp(db: D1Database, env: Env, email: string): Promis
 		message: 'A new verification code has been sent to your email address.',
 		dev_otp: getDevOtpIfApplicable(env, otp),
 	};
+}
+
+// ─── forgotPassword ───────────────────────────────────────────────────────────
+// Sends OTP to ANY registered email regardless of verification status.
+// Used by the "Forgot password" flow.
+
+export async function forgotPassword(db: D1Database, env: Env, email: string): Promise<{ message: string; dev_otp?: string }> {
+	const user = await findByEmail(db, email);
+
+	// Always return the same message to prevent email enumeration
+	if (!user) return { message: 'If that email is registered, a reset code has been sent.' };
+
+	const otp = await generateAndStoreOtp(env.CACHE, email);
+	await sendOtpEmail(env, email, otp, user.name);
+
+	return {
+		message: 'A reset code has been sent to your email address.',
+		dev_otp: getDevOtpIfApplicable(env, otp),
+	};
+}
+
+// ─── resetPassword ────────────────────────────────────────────────────────────
+// Verifies OTP → hashes new password → saves to DB → signs user in.
+// This is the correct forgot-password completion step.
+
+export async function resetPassword(
+	db: D1Database,
+	env: Env,
+	email: string,
+	otp: string,
+	newPassword: string,
+): Promise<FullAuthResponse> {
+	if (!newPassword || newPassword.length < 8) {
+		throw AppError.badRequest('Password must be at least 8 characters');
+	}
+
+	const user = await findByEmail(db, email);
+	if (!user) throw AppError.badRequest('Invalid or expired reset code');
+
+	// Verify OTP — consumes it (single-use)
+	const isValid = await verifyOtp(env.CACHE, email, otp);
+	if (!isValid) throw AppError.badRequest('Invalid or expired reset code');
+
+	// Hash and save new password
+	const hashed = await hashPassword(newPassword);
+	await updatePassword(db, email, hashed);
+
+	// Ensure user is marked verified (edge case: unverified user resets password)
+	if (user.is_verified === 0) {
+		await markUserVerified(db, email);
+	}
+
+	// Issue session tokens
+	const freshUser = await findByEmail(db, email);
+	if (!freshUser) throw AppError.internal('User not found after password reset');
+	const { token, refreshToken } = await issueTokenPair(freshUser, env);
+	return { token, refreshToken, user: toPublic(freshUser) };
 }
 
 // ─── getProfile ───────────────────────────────────────────────────────────────

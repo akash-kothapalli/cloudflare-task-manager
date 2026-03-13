@@ -73,3 +73,14 @@ export async function markUserVerified(db: D1Database, email: string): Promise<v
 		.bind(email.toLowerCase())
 		.run();
 }
+
+/**
+ * Update a user's hashed password.
+ * Called after successful OTP verification in the forgot-password flow.
+ */
+export async function updatePassword(db: D1Database, email: string, hashedPassword: string): Promise<void> {
+	await db
+		.prepare("UPDATE users SET password = ?, updated_at = datetime('now') WHERE email = ?")
+		.bind(hashedPassword, email.toLowerCase())
+		.run();
+}

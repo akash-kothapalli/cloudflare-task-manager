@@ -17,7 +17,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { notFound } from '../utils/response';
 import {
 	registerController, loginController, getMeController,
-	verifyOtpController, resendOtpController, refreshController,
+	verifyOtpController, resendOtpController, forgotPasswordController, resetPasswordController, refreshController,
 } from '../controllers/auth.controller';
 import { handleGetAllTasks, handleGetTaskById, handleCreateTask, handleUpdateTask, handleDeleteTask } from '../controllers/task.controller';
 import { handleGetTags, handleCreateTag, handleUpdateTag, handleDeleteTag } from '../controllers/tag.controller';
@@ -51,6 +51,8 @@ export async function router(request: Request, env: Env, ctx: ExecutionContext):
 		if (seg2 === 'login'      && method === 'POST') return loginController(request, env);
 		if (seg2 === 'verify-otp' && method === 'POST') return verifyOtpController(request, env);
 		if (seg2 === 'resend-otp' && method === 'POST') return resendOtpController(request, env);
+		if (seg2 === 'forgot-password' && method === 'POST') return forgotPasswordController(request, env);
+		if (seg2 === 'reset-password' && method === 'POST') return resetPasswordController(request, env);
 		if (seg2 === 'refresh'    && method === 'POST') return refreshController(request, env);
 
 		if (seg2 === 'me' && method === 'GET') {

@@ -139,6 +139,30 @@
 				margin-bottom: 1rem;
 			}
 
+			.password-wrap { position: relative; }
+			.password-wrap input { padding-right: 2.6rem !important; box-sizing: border-box; }
+			.eye-btn {
+				position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+				background: none; border: none; cursor: pointer; color: var(--muted);
+				padding: 0; font-size: 1rem; line-height: 1; transition: color 0.15s;
+			}
+			.eye-btn:hover { color: var(--text); }
+			.forgot-link {
+				display: block; text-align: right; font-size: 0.75rem;
+				color: var(--accent); font-family: var(--font-mono); cursor: pointer;
+				margin-top: -0.4rem; margin-bottom: 1rem;
+				background: none; border: none; padding: 0;
+			}
+			.forgot-link:hover { text-decoration: underline; }
+			#forgot-screen { display: none; }
+			#forgot-screen.visible { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+			.reset-success {
+				margin-top: 1rem; padding: 0.75rem 1rem;
+				background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+				border-radius: var(--radius); font-size: 0.82rem;
+				font-family: var(--font-mono); color: #4ade80; text-align: center; line-height: 1.6;
+			}
+
 			.field label {
 				display: block;
 				font-size: 0.75rem;
@@ -1249,8 +1273,12 @@
 					</div>
 					<div class="field">
 						<label>Password</label>
-						<input type="password" id="login-password" placeholder="••••••••" />
+						<div class="password-wrap">
+							<input type="password" id="login-password" placeholder="••••••••" />
+							<button class="eye-btn" type="button" onclick="togglePassword('login-password',this)" title="Show password">👁</button>
+						</div>
 					</div>
+					<button class="forgot-link" type="button" onclick="showForgotScreen()">Forgot password?</button>
 					<button class="btn btn-primary btn-full" onclick="doLogin()">Sign In →</button>
 				</div>
 
@@ -1266,7 +1294,10 @@
 					</div>
 					<div class="field">
 						<label>Password (min 8 chars)</label>
-						<input type="password" id="reg-password" placeholder="••••••••" />
+						<div class="password-wrap">
+							<input type="password" id="reg-password" placeholder="••••••••" />
+							<button class="eye-btn" type="button" onclick="togglePassword('reg-password',this)" title="Show password">👁</button>
+						</div>
 					</div>
 					<button class="btn btn-primary btn-full" onclick="doRegister()">Create Account →</button>
 				</div>
@@ -1305,6 +1336,58 @@
 					<span>Didn't receive it?</span>
 					<button class="otp-resend-btn" id="otp-resend-btn" onclick="doResendOtp()">Resend code</button>
 					<span class="otp-timer" id="otp-timer" style="display:none"></span>
+				</div>
+
+				<button class="otp-back-btn" onclick="showAuthScreen()">← Back to sign in</button>
+			</div>
+		</div>
+
+
+		<!-- ════════════════════════════════════ FORGOT PASSWORD SCREEN -->
+		<div id="forgot-screen">
+			<div class="auth-card">
+				<div class="auth-logo">Task<span>Flow</span></div>
+				<div class="auth-subtitle">// reset password</div>
+				<div id="forgot-error" class="error-msg" style="margin-top:1rem"></div>
+				<div id="forgot-success" class="reset-success" style="display:none"></div>
+
+				<!-- Step 1: enter email -->
+				<div id="forgot-step1">
+					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">
+						Enter your registered email — we'll send a 6-digit reset code.
+					</p>
+					<div class="field">
+						<label>Email</label>
+						<input type="email" id="forgot-email" placeholder="you@example.com" />
+					</div>
+					<button class="btn btn-primary btn-full" onclick="doForgotRequest()">Send Reset Code →</button>
+				</div>
+
+				<!-- Step 2: OTP + new password -->
+				<div id="forgot-step2" style="display:none">
+					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">
+						Code sent to <strong id="forgot-email-display"></strong>
+					</p>
+					<div class="field">
+						<label>6-Digit Code</label>
+						<input type="text" id="forgot-otp-input" placeholder="000000" maxlength="6"
+							style="letter-spacing:0.3em;text-align:center;font-family:var(--font-mono);font-size:1.2rem" />
+					</div>
+					<div class="field">
+						<label>New Password (min 8 chars)</label>
+						<div class="password-wrap">
+							<input type="password" id="forgot-newpass" placeholder="••••••••" />
+							<button class="eye-btn" type="button" onclick="togglePassword('forgot-newpass',this)">👁</button>
+						</div>
+					</div>
+					<div class="field">
+						<label>Confirm New Password</label>
+						<div class="password-wrap">
+							<input type="password" id="forgot-confirmpass" placeholder="••••••••" />
+							<button class="eye-btn" type="button" onclick="togglePassword('forgot-confirmpass',this)">👁</button>
+						</div>
+					</div>
+					<button class="btn btn-primary btn-full" onclick="doForgotReset()">Reset Password →</button>
 				</div>
 
 				<button class="otp-back-btn" onclick="showAuthScreen()">← Back to sign in</button>
@@ -1673,8 +1756,81 @@
 
 			function showAuthScreen() {
 				document.getElementById('otp-screen').classList.remove('visible');
+				document.getElementById('forgot-screen').classList.remove('visible');
 				document.getElementById('auth-screen').style.display = '';
 				clearInterval(otpResendTimer);
+			}
+
+			// ── Show / hide password ──────────────────────────────────────────────────
+			function togglePassword(id, btn) {
+				const inp = document.getElementById(id);
+				const show = inp.type === 'password';
+				inp.type = show ? 'text' : 'password';
+				btn.textContent = show ? '🙈' : '👁';
+				btn.title = show ? 'Hide password' : 'Show password';
+			}
+
+			// ── Forgot password ───────────────────────────────────────────────────────
+			function showForgotScreen() {
+				document.getElementById('auth-screen').style.display = 'none';
+				document.getElementById('forgot-screen').classList.add('visible');
+				document.getElementById('forgot-error').classList.remove('show');
+				document.getElementById('forgot-success').style.display = 'none';
+				document.getElementById('forgot-step1').style.display = '';
+				document.getElementById('forgot-step2').style.display = 'none';
+				['forgot-email','forgot-otp-input','forgot-newpass','forgot-confirmpass']
+					.forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+			}
+
+			async function doForgotRequest() {
+				const errEl = document.getElementById('forgot-error');
+				errEl.classList.remove('show');
+				const email = document.getElementById('forgot-email').value.trim();
+				if (!email) { errEl.textContent = 'Email is required.'; errEl.classList.add('show'); return; }
+				const btn = event.target;
+				btn.disabled = true; btn.textContent = 'Sending…';
+				const { ok, data } = await api('POST', '/auth/forgot-password', { email });
+				btn.disabled = false; btn.textContent = 'Send Reset Code →';
+				if (!ok) {
+					errEl.textContent = data?.error?.message || 'No account found with that email.';
+					errEl.classList.add('show'); return;
+				}
+				document.getElementById('forgot-email-display').textContent = email;
+				document.getElementById('forgot-step1').style.display = 'none';
+				document.getElementById('forgot-step2').style.display = '';
+				if (data.data?.dev_otp) {
+					const s = document.getElementById('forgot-success');
+					s.textContent = 'Dev mode — OTP: ' + data.data.dev_otp;
+					s.style.display = '';
+				}
+			}
+
+			async function doForgotReset() {
+				const errEl = document.getElementById('forgot-error');
+				errEl.classList.remove('show');
+				const email   = document.getElementById('forgot-email').value.trim();
+				const otp     = document.getElementById('forgot-otp-input').value.trim();
+				const newPass = document.getElementById('forgot-newpass').value;
+				const confirm = document.getElementById('forgot-confirmpass').value;
+				if (otp.length !== 6)     { errEl.textContent = 'Enter the 6-digit code.'; errEl.classList.add('show'); return; }
+				if (newPass.length < 8)   { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
+				if (newPass !== confirm)   { errEl.textContent = 'Passwords do not match.'; errEl.classList.add('show'); return; }
+				const btn = event.target;
+				btn.disabled = true; btn.textContent = 'Resetting…';
+				// POST /auth/reset-password — verifies OTP, saves new password, signs in
+				const { ok, data } = await api('POST', '/auth/reset-password', { email, otp, newPassword: newPass });
+				btn.disabled = false; btn.textContent = 'Reset Password →';
+				if (!ok) {
+					errEl.textContent = data?.error?.message || 'Invalid or expired code.';
+					errEl.classList.add('show'); return;
+				}
+				token = data.data.token;
+				if (data.data.refreshToken) localStorage.setItem('tf_refresh', data.data.refreshToken);
+				currentUser = data.data.user;
+				const s = document.getElementById('forgot-success');
+				s.textContent = '✓ Password reset successfully! Signing you in…';
+				s.style.display = '';
+				setTimeout(() => { showAuthScreen(); enterApp(); }, 1500);
 			}
 
 			// Wire up OTP digit inputs — auto-advance, backspace, paste

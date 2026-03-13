@@ -9,14 +9,14 @@
 // =============================================================================
 
 
-import { registerUser, loginUser, getProfile, verifyOtpAndLogin, resendOtp, refreshAccessToken } from '../services/auth.service';
+import { registerUser, loginUser, getProfile, verifyOtpAndLogin, resendOtp, forgotPassword, resetPassword, refreshAccessToken } from '../services/auth.service';
 import { validateRegisterInput, validateLoginInput } from '../utils/validation';
 import { ok, created, badRequest } from '../utils/response';
 import type { AuthContext } from '../middleware/auth.middleware';
 import type { Env } from '../types/env.types';
 
 const REFRESH_COOKIE = (token: string) =>
-	`refresh_token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh; Max-Age=${7 * 24 * 3600}`;
+	`refresh_token=${token}; HttpOnly; Secure; SameSite=None; Path=/auth/refresh; Max-Age=${7 * 24 * 3600}`;
 
 function withRefreshCookie(response: Response, refreshToken: string): Response {
 	const headers = new Headers(response.headers);
@@ -44,6 +44,22 @@ export async function verifyOtpController(request: Request, env: Env): Promise<R
 	if (typeof b.otp !== 'string' || !b.otp.trim()) return badRequest('otp is required');
 	if (!/^\d{6}$/.test(b.otp.trim())) return badRequest('otp must be a 6-digit code');
 	const result = await verifyOtpAndLogin(env.DB, env, b.email.trim().toLowerCase(), b.otp.trim());
+	return withRefreshCookie(ok(result), result.refreshToken);
+}
+
+// POST /auth/forgot-password — sends OTP to verified users for password reset
+export async function forgotPasswordController(request: Request, env: Env): Promise<Response> {
+	const b = (await request.json().catch(() => ({}))) as { email?: string };
+	if (!b.email || typeof b.email !== 'string') return badRequest('email is required');
+	const result = await forgotPassword(env.DB, env, b.email.trim().toLowerCase());
+	return ok(result);
+}
+
+// POST /auth/reset-password — verify OTP + save new password + sign in
+export async function resetPasswordController(request: Request, env: Env): Promise<Response> {
+	const b = (await request.json().catch(() => ({}))) as { email?: string; otp?: string; newPassword?: string };
+	if (!b.email || !b.otp || !b.newPassword) return badRequest('email, otp, and newPassword are required');
+	const result = await resetPassword(env.DB, env, b.email.trim().toLowerCase(), b.otp.trim(), b.newPassword);
 	return withRefreshCookie(ok(result), result.refreshToken);
 }
 

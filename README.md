@@ -14,9 +14,10 @@ Create and manage tasks with full lifecycle tracking (todo → in progress → d
 
 ## UI Features
 
-The frontend is a single `public/index.html` — 1,305 lines, zero dependencies, zero build step:
+The frontend is a single `public/index.html` — zero dependencies, zero build step:
 
-- **Auth** — Login / Register tabs, JWT stored in localStorage, session auto-restored on refresh
+- **Auth** — Login / Register tabs with show/hide password toggle. Access token in JS memory only (XSS-safe). Refresh token in HttpOnly cookie (server-set, auto-sent by browser) and `localStorage` as fallback for API clients. Session auto-restored on refresh via silent token renewal
+- **Forgot password** — Email OTP flow: enter email → receive reset code → enter code + new password → signed in automatically
 - **Task board** — Cards with status chips, priority badges, due dates, and tag chips
 - **AI strip** — `ai_summary` and `ai_sentiment` appear on each card after Llama-3 enriches (colour-coded: green = positive, yellow = neutral, red = negative)
 - **Sidebar filters** — All / Todo / In Progress / Done with live counts
@@ -35,8 +36,9 @@ The frontend is a single `public/index.html` — 1,305 lines, zero dependencies,
 | -------- | ------------------------------------- | ----------------------------------------------------- |
 | Runtime  | Cloudflare Workers (V8 isolate)       | Edge execution, zero cold start, globally distributed |
 | Database | D1 (SQLite)                           | Relational data, FK constraints, composite indexes    |
-| Cache    | KV Store                              | Per-user task cache + sliding-window rate limiting    |
+| Cache    | KV Store                              | Per-user task cache + sliding-window rate limiting + OTP storage    |
 | AI       | Workers AI — Llama-3-8b-instruct      | Task summarisation + sentiment, no external API key   |
+| Email    | Brevo Transactional API               | OTP delivery — 300 emails/day free, sends to any address |
 | Frontend | Vanilla HTML/JS — `public/index.html` | Zero build step, served as Workers static asset       |
 | Auth     | JWT (jose) + PBKDF2-SHA256            | Web Crypto only — no Node.js crypto dependency        |
 | Language | TypeScript strict mode                | No `any`, Readonly types, discriminated unions        |
@@ -48,7 +50,7 @@ The frontend is a single `public/index.html` — 1,305 lines, zero dependencies,
 ```
 cloudflare-task-manager/
 ├── public/
-│   └── index.html              ← Full UI — 1,305 lines, zero dependencies
+│   └── index.html              ← Full UI — zero dependencies
 ├── src/
 │   ├── index.ts                ← Worker entry point: 5-step request pipeline
 │   ├── controllers/            ← HTTP layer: parse → validate → call service → respond
@@ -60,7 +62,7 @@ cloudflare-task-manager/
 │   │   ├── task.service.ts
 │   │   ├── tag.service.ts
 │   │   ├── email-validation.service.ts  ← MX record check (production) + format validation
-│   │   └── otp.service.ts              ← OTP generation, KV storage, verification + expiry
+│   │   └── otp.service.ts              ← OTP generation, KV storage, Brevo email delivery
 │   ├── repositories/           ← Data layer: SQL only, parameterised queries, row mapping
 │   │   ├── user.repository.ts
 │   │   ├── task.repository.ts
@@ -96,6 +98,7 @@ cloudflare-task-manager/
 - Node.js 18+
 - Cloudflare account (free tier works)
 - Wrangler CLI: `npm install -g wrangler`
+- Brevo account (free tier — [brevo.com](https://brevo.com))
 
 ---
 
@@ -221,7 +224,7 @@ curl -X POST http://localhost:8787/auth/register \
 }
 ```
 
-> `dev_otp` is only returned when `ENVIRONMENT !== 'production'`. In production, the OTP is sent via email only.
+> `dev_otp` is only returned when `ENVIRONMENT !== 'production'`. In production, the OTP is sent via Brevo email only.
 
 **Validation errors:**
 
@@ -282,10 +285,52 @@ curl -X POST http://localhost:8787/auth/login \
 }
 ```
 
-> `refreshToken` is also set as an `HttpOnly` cookie (`refresh_token`) for browser clients. The cookie is used automatically by `POST /auth/refresh`.
+> `refreshToken` is also set as an `HttpOnly` cookie (`refresh_token`, `SameSite=None`) for browser clients. The cookie is used automatically by `POST /auth/refresh`.
 
 **Errors:** `401` for wrong email or password (same error — prevents user enumeration)
 **Errors:** `403` if account exists but email is not yet verified
+
+---
+
+#### `POST /auth/forgot-password`
+
+Send a 6-digit reset code to any registered email address, regardless of verification status.
+
+```bash
+curl -X POST http://localhost:8787/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com"}'
+```
+
+**Response 200:**
+
+```json
+{
+	"success": true,
+	"data": {
+		"message": "A reset code has been sent to your email address.",
+		"dev_otp": "654321"
+	}
+}
+```
+
+> Always returns 200 even if the email is not registered — prevents user enumeration. `dev_otp` only shown outside production.
+
+---
+
+#### `POST /auth/reset-password`
+
+Verify the reset OTP, save a new hashed password, and sign the user in. The OTP is single-use and expires after 10 minutes.
+
+```bash
+curl -X POST http://localhost:8787/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","otp":"654321","newPassword":"newpassword123"}'
+```
+
+**Response 200:** Full auth response (token + refreshToken + user) — user is signed in immediately after reset.
+
+**Errors:** `400` invalid or expired OTP, `400` password under 8 characters, `400` missing fields
 
 ---
 
@@ -328,6 +373,18 @@ curl -X POST http://localhost:8787/auth/refresh \
 ```
 
 **Errors:** `401` missing token, `401` tampered or expired token
+
+---
+
+#### `POST /auth/resend-otp`
+
+Resend the verification OTP to an unverified account. Does not work for already-verified accounts — use `POST /auth/forgot-password` instead.
+
+```bash
+curl -X POST http://localhost:8787/auth/resend-otp \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com"}'
+```
 
 ---
 
@@ -460,24 +517,6 @@ curl -X PATCH http://localhost:8787/tasks/3 \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"status": "done"}'
-
-# Change priority and due date
-curl -X PATCH http://localhost:8787/tasks/3 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"priority": "critical", "due_date": "2026-02-28"}'
-
-# Update title and attach tags
-curl -X PATCH http://localhost:8787/tasks/3 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Updated title", "tag_ids": [1, 2]}'
-
-# Clear description (set to null explicitly)
-curl -X PATCH http://localhost:8787/tasks/3 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"description": null}'
 ```
 
 > When `status` changes to `done`, `completed_at` is automatically set. When moving away from `done`, `completed_at` is cleared.
@@ -496,22 +535,6 @@ curl -X DELETE http://localhost:8787/tasks/3 \
 ```
 
 **Response 200:** `{ "success": true, "data": { "message": "Task 3 deleted successfully" } }`
-
-**Partial update**
-
-```bash
-# Mark done — completed_at is auto-set by the DB
-curl -X PATCH http://localhost:8787/tasks/1 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"status":"done"}'
-
-# Only update priority — other fields unchanged
-curl -X PATCH http://localhost:8787/tasks/1 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"priority":"high"}'
-```
 
 ---
 
@@ -548,17 +571,10 @@ curl -X POST http://localhost:8787/tags \
 Rename or recolor an existing tag. Send only the fields you want to change — at least one is required.
 
 ```bash
-# Rename
 curl -X PATCH http://localhost:8787/tags/1 \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "urgent"}'
-
-# Recolor
-curl -X PATCH http://localhost:8787/tags/1 \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"color": "#ef4444"}'
+  -d '{"name": "urgent", "color": "#ef4444"}'
 ```
 
 | Field   | Required | Validation |
@@ -615,6 +631,7 @@ npm run db:migrate:remote
 ```bash
 npx wrangler secret put JWT_SECRET
 npx wrangler secret put REFRESH_TOKEN_SECRET
+npx wrangler secret put BREVO_API_KEY
 # Paste your generated secrets at each prompt
 ```
 
@@ -676,7 +693,7 @@ Request arrives
                          Applied to every outgoing response (creates new Response — Workers responses are immutable)
 ```
 
-### KV Store — two use cases
+### KV Store — three use cases
 
 **Task cache (per-user isolation):**
 
@@ -697,10 +714,20 @@ TTL:   60 seconds — auto-reset creates sliding window effect
 Why KV: ~1ms reads vs ~5–10ms D1 round-trip for this hot path
 ```
 
+**OTP storage:**
+
+```
+Key:   otp:{email}
+Value: 6-digit code (cryptographically random)
+TTL:   600 seconds (10 minutes)
+Use:   Registration verification + forgot-password reset codes
+Note:  Single-use — deleted immediately on successful verification
+```
+
 ### D1 schema
 
 ```sql
-users     — email UNIQUE, PBKDF2 hash stored as "saltHex:hashHex"
+users     — email UNIQUE, PBKDF2 hash stored as "saltHex:hashHex", is_verified flag
 tasks     — user_id FK + ON DELETE CASCADE
             status CHECK IN ('todo','in_progress','done','cancelled')
             priority CHECK IN ('low','medium','high','critical')
@@ -761,14 +788,15 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 
 | Layer            | Implementation                                                                                                                                                                                                                                                                                           |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth             | Access token: JWT HS256, 15min expiry. Refresh token: JWT HS256, 7-day expiry, HttpOnly cookie + body. Both verified on every protected route |
-| Passwords        | PBKDF2-SHA256, 100k iterations, unique salt per user                                                                                                                                                                                                                                                     |
-| User enumeration | Login always returns same 401 regardless of which field is wrong                                                                                                                                                                                                                                         |
+| Auth             | Access token: JWT HS256, 15min expiry. Refresh token: JWT HS256, 7-day expiry, HttpOnly `SameSite=None` cookie + body. Silent refresh on 401 — users never see session expired unless refresh token also expires |
+| Passwords        | PBKDF2-SHA256, 100k iterations, unique salt per user. Reset via email OTP — new password hashed and saved, user signed in immediately |
+| User enumeration | Login and forgot-password always return same message regardless of whether email exists |
 | SQL injection    | All queries use D1 `.bind()` — zero string interpolation                                                                                                                                                                                                                                                 |
 | LIKE injection   | `%` and `_` escaped in search input before query                                                                                                                                                                                                                                                         |
 | Rate limiting    | 60 req/min/IP via KV, keyed on `CF-Connecting-IP`                                                                                                                                                                                                                                                        |
 | WAF              | SQLi, XSS (URL + request body), path traversal — regex + escaped-root detection on every request |
 | Task isolation   | Every query: `AND user_id = ?` — cross-user access impossible                                                                                                                                                                                                                                            |
+| OTP security     | Cryptographically random (Web Crypto), 10-min TTL, single-use (deleted on verify), timing-safe comparison |
 | Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
 | CORS             | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request                                                                                                                                                                                                         |
 
@@ -780,6 +808,8 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 | ---------------------- | -------------------------------------------------- | ------------------------------------ |
 | `JWT_SECRET`           | `.dev.vars` locally, `wrangler secret put` in prod | Access token signing key — 32+ chars |
 | `REFRESH_TOKEN_SECRET` | `.dev.vars` locally, `wrangler secret put` in prod | Refresh token signing key — 32+ chars |
+| `BREVO_API_KEY`        | `wrangler secret put` in prod only                 | Brevo transactional email API key (`xkeysib-...`) — 300 emails/day free |
+| `EMAIL_FROM`           | `wrangler secret put` (optional)                   | Sender address — must be verified in Brevo dashboard (default: your Brevo account email) |
 | `ENVIRONMENT`          | `wrangler.jsonc` vars block / `.dev.vars`          | `development` or `production`        |
 
 ---
@@ -811,3 +841,6 @@ Miniflare (the local Workers runtime used by vitest) cannot simulate Workers AI 
 
 **Why KV for caching, not D1?**
 D1 adds ~5–10ms per round trip. KV reads are ~1ms globally. The rate limiter runs on every single request — that cost compounds fast. KV is the right primitive for hot-path reads where eventual consistency is acceptable.
+
+**Why Brevo for email?**
+Brevo's free tier sends to any email address with no domain verification required — unlike Resend (free tier restricted to verified recipients only). 300 emails/day is sufficient for a project. The sender address just needs to be verified once in the Brevo dashboard.

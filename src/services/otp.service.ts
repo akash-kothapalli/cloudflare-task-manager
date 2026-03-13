@@ -74,12 +74,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 // ─── Send Email ───────────────────────────────────────────────────────────────
 
 /**
- * Sends OTP email via Resend (https://resend.com).
- * Falls back to console.log in dev when RESEND_API_KEY is not set —
- * the OTP is also returned directly in the API response as dev_otp.
+ * Sends OTP email via Brevo (https://brevo.com).
+ * Free tier: 300 emails/day, sends to ANY email — no domain verification needed.
+ * Falls back to console.log in dev when BREVO_API_KEY is not set.
  */
 export async function sendOtpEmail(env: Env, email: string, otp: string, name: string): Promise<void> {
-	if (!env.RESEND_API_KEY) {
+	if (!env.BREVO_API_KEY) {
 		// Dev mode — OTP is already returned in the API response via auth.service.
 		console.log(
 			JSON.stringify({
@@ -87,33 +87,34 @@ export async function sendOtpEmail(env: Env, email: string, otp: string, name: s
 				event: 'OTP_DEV',
 				to: email,
 				otp,
-				note: 'Set RESEND_API_KEY secret to send real emails in production',
+				note: 'Set BREVO_API_KEY secret to send real emails in production',
 			}),
 		);
 		return;
 	}
 
-	const from = env.EMAIL_FROM ?? 'TaskFlow <onboarding@resend.dev>';
+	const senderEmail = env.EMAIL_FROM ?? 'akashkothapalli95@gmail.com';
+	const senderName = 'TaskFlow';
 
-	const res = await fetch('https://api.resend.com/emails', {
+	const res = await fetch('https://api.brevo.com/v3/smtp/email', {
 		method: 'POST',
 		headers: {
-			Authorization: `Bearer ${env.RESEND_API_KEY}`,
+			'api-key': env.BREVO_API_KEY,
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
-			from,
-			to: email,
+			sender: { name: senderName, email: senderEmail },
+			to: [{ email, name }],
 			subject: `Your TaskFlow verification code: ${otp}`,
-			text: buildTextEmail(name, otp),
-			html: buildHtmlEmail(name, otp),
+			textContent: buildTextEmail(name, otp),
+			htmlContent: buildHtmlEmail(name, otp),
 		}),
 	});
 
 	if (!res.ok) {
 		const body = await res.text().catch(() => '');
 		console.error(JSON.stringify({ level: 'error', event: 'OTP_EMAIL_FAILED', status: res.status, body }));
-		// Don't throw — OTP is stored in KV, user can use resend flow
+		throw new Error('Failed to send verification email — please try again');
 	}
 }
 
