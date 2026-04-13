@@ -30,7 +30,7 @@ export async function handleGetAllTasks(request: Request, env: Env, auth: AuthCo
 	if (priorityParam && !TASK_PRIORITIES.includes(priorityParam as TaskPriority)) {
 		return badRequest(`priority must be one of: ${TASK_PRIORITIES.join(', ')}`);
 	}
-
+	const tagIdParam = url.searchParams.get('tag_id');
 	const params: TaskQueryParams = {
 		status: (statusParam as TaskStatus | undefined) ?? undefined,
 		priority: (priorityParam as TaskPriority | undefined) ?? undefined,
@@ -38,6 +38,7 @@ export async function handleGetAllTasks(request: Request, env: Env, auth: AuthCo
 		search: url.searchParams.get('search') ?? undefined,
 		page: parsePositiveInt(url.searchParams.get('page'), 1),
 		limit: parsePositiveInt(url.searchParams.get('limit'), 20, 100),
+		tag_id:     tagIdParam ? parseInt(tagIdParam, 10) : undefined,
 	};
 
 	const result = await taskService.getAllTasks(env.DB, env.CACHE, auth.userId, params);

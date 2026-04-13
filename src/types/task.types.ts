@@ -90,6 +90,7 @@ export interface TaskQueryParams {
 	search?: string; // partial match on title
 	page?: number; // default 1
 	limit?: number; // default 20, max 100
+	tag_id?:     number;
 }
 
 // ─── Tag inputs ───────────────────────────────────────────────────────────────

@@ -19,15 +19,18 @@
 	],
 
 	// ── KV Namespace ───────────────────────────────────────────────────────────
-	// CHANGED: "TASK_CACHE" → "CACHE"
-	// Reason: binding name must match env.CACHE used in src/services/task.service.ts,
-	// src/middleware/security.ts, src/index.ts
-	// If this stays as TASK_CACHE the Worker throws:
-	//   "Cannot read properties of undefined (reading 'get')" on every request
+	// id        = production KV namespace (used by wrangler deploy)
+	// preview_id = local dev KV namespace (used by wrangler dev)
+	// WHY preview_id: without it, wrangler dev hits your REAL production KV.
+	// That means local dev shares rate limit counters and OTP state with live users.
+	// Run this once to create the preview namespace:
+	//   npx wrangler kv namespace create CACHE --preview
+	// Then paste the returned preview_id below.
 	"kv_namespaces": [
 		{
 			"binding": "CACHE",
-			"id": "6cc33984b7a84ac6b8bf8f8f6cef9a49"
+			"id": "6cc33984b7a84ac6b8bf8f8f6cef9a49",
+			"preview_id": "3b9805e9f8df47b380882ef14da31bc4"
 		}
 	],
 
@@ -40,14 +43,20 @@
 	},
 
 	// ── Environment variables ──────────────────────────────────────────────────
-	// Secrets (JWT_SECRET) are NOT here for production — set via: wrangler secret put JWT_SECRET
-	// For local dev + tests: set in .dev.vars (read by wrangler dev and miniflare automatically)
+	// ENVIRONMENT here is the production value — used by wrangler deploy.
+	// Local dev overrides this via .dev.vars: ENVIRONMENT=development
+	// That override makes dev_otp appear in register/forgot-password responses.
+	// Secrets (JWT_SECRET, REFRESH_TOKEN_SECRET) are set via:
+	//   npx wrangler secret put JWT_SECRET
+	//   npx wrangler secret put REFRESH_TOKEN_SECRET
+	// Never put secret values in this file — it is committed to git.
 	"vars": {
 		"ENVIRONMENT": "production"
 	},
 
 	// ── Observability ──────────────────────────────────────────────────────────
-	// Enables Workers Logpush + metrics in Cloudflare dashboard
+	// Enables Workers Logpush + metrics in Cloudflare dashboard.
+	// View logs live with: npx wrangler tail
 	"observability": {
 		"enabled": true
 	},
@@ -58,21 +67,24 @@
 		"nodejs_compat"
 	],
 
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": { "mode": "smart" }
+	// ── Smart Placement ────────────────────────────────────────────────────────
+	// Cloudflare automatically runs this Worker in the region closest to the
+	// D1 database, instead of closest to the user.
+	// WHY: D1 queries have network latency. If the user is in Bangalore and the
+	// Worker spawns in Singapore but D1 is in US-East, every query crosses the
+	// Atlantic. Smart Placement moves the Worker near D1, cutting query RTT
+	// from ~200ms to ~10ms. The user sees faster responses overall even though
+	// the Worker is slightly further from them.
+	// Cost: zero — Smart Placement is free on all plans.
+	"placement": { "mode": "smart" },
 
-	/**
-	 * Static Assets
-	 * https://developers.cloudflare.com/workers/static-assets/binding/
-	 */
+	// ── Static Assets ──────────────────────────────────────────────────────────
+	// Serves public/index.html and any other files in public/ directly.
+	// The ASSETS binding lets the Worker fall through to static files for
+	// non-API routes (anything not matching /tasks, /auth, /tags, /health).
 	"assets": { "directory": "./public/", "binding": "ASSETS" }
 
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
+	// ── Service Bindings ───────────────────────────────────────────────────────
+	// Uncomment to communicate between multiple Workers (not needed currently)
 	// "services": [ { "binding": "MY_SERVICE", "service": "my-service" } ]
 }

@@ -4,6 +4,14 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>TaskFlow — Cloudflare Task Manager</title>
+		<meta name="description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization — built on Cloudflare Workers + TypeScript." />
+		<meta property="og:title" content="TaskFlow – Edge Task Manager on Cloudflare Workers" />
+		<meta property="og:description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization." />
+		<meta property="og:url" content="https://cloudflare-task-manager.taskflow-akash.workers.dev" />
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:title" content="TaskFlow – Edge Task Manager on Cloudflare Workers" />
+		<meta name="twitter:description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization." />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link
 			href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap"
@@ -2293,16 +2301,34 @@
 					el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">No tags yet</span>';
 					return;
 				}
-				el.innerHTML = tags
-					.map(
-						(tag) => `
-    <div class="tag-item">
-      <span class="tag-dot" style="background:${tag.color}"></span>
-      <span>${esc(tag.name)}</span>
-      <button class="tag-x" onclick="removeTag(${tag.id})">✕</button>
-    </div>`,
-					)
-					.join('');
+				el.innerHTML = tags.map(tag => `
+					<div class="tag-item" id="tag-row-${tag.id}">
+						<span class="tag-dot" style="background:${tag.color}"></span>
+						<span style="flex:1">${esc(tag.name)}</span>
+						<button class="tag-x" style="margin-right:0.25rem;color:var(--accent);background:none;border:none;cursor:pointer;font-size:0.75rem;font-family:var(--font-mono)" onclick="showTagEdit(${tag.id},'${esc(tag.name)}','${tag.color}')">edit</button>
+						<button class="tag-x" onclick="removeTag(${tag.id})">✕</button>
+					</div>
+					<div id="tag-edit-${tag.id}" style="display:none;padding:0.5rem 0 0.5rem 1.5rem;gap:0.5rem;flex-wrap:wrap;align-items:center" class="tag-item">
+						<input id="tag-edit-name-${tag.id}" type="text" value="${esc(tag.name)}" style="flex:1;min-width:100px;padding:0.4rem 0.6rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.85rem" />
+						<button class="btn btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem" onclick="saveTagEdit(${tag.id})">Save</button>
+						<button class="btn" style="padding:0.35rem 0.75rem;font-size:0.8rem;background:var(--surface2)" onclick="hideTagEdit(${tag.id})">Cancel</button>
+					</div>`).join('');
+			}
+
+			function showTagEdit(id, name, color) {
+				document.getElementById('tag-edit-' + id).style.display = 'flex';
+				document.getElementById('tag-edit-name-' + id).focus();
+			}
+			function hideTagEdit(id) {
+				document.getElementById('tag-edit-' + id).style.display = 'none';
+			}
+			async function saveTagEdit(id) {
+				const name = document.getElementById('tag-edit-name-' + id).value.trim();
+				if (!name) return toast('Tag name required', 'error');
+				const { ok, data } = await api('PATCH', '/tags/' + id, { name });
+				if (!ok) return toast(data?.error?.message || 'Failed to update tag', 'error');
+				toast('Tag updated', 'success');
+				loadTags();
 			}
 
 			async function createTag() {

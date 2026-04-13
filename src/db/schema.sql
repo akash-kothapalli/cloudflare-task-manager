@@ -1,7 +1,7 @@
 -- =============================================================================
--- cloudflare-task-manager  —  D1 Schema
--- Run locally : wrangler d1 execute cloudflare-task-manager-db --file=src/db/schema.sql
--- Run remote  : wrangler d1 execute cloudflare-task-manager-db --remote --file=src/db/schema.sql
+-- task-manager-db  —  D1 Schema
+-- Run locally : wrangler d1 execute task-manager-db --file=src/db/schema.sql
+-- Run remote  : wrangler d1 execute task-manager-db --remote --file=src/db/schema.sql
 -- =============================================================================
 
 
