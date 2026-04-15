@@ -24,9 +24,23 @@ The frontend is a single `public/index.html` — zero dependencies, zero build s
 - **Priority filter** dropdown
 - **Stats bar** — Total / In Progress / Done / AI Enriched counts
 - **Modals** — Create/Edit task (all fields), Manage tags with hex color palette picker
+- **Tag filter** — Click any tag in the sidebar to filter tasks by that tag.
+  "All Tags" resets the filter. Active filters shown as dismissible pills
+  below the stats bar (works alongside status and priority filters)
+- **Dark / Light mode toggle** — 🌙/☀️ button in topbar. Preference saved
+  to localStorage and restored on next visit
+- **Filter pills** — Active filters (status, tag, priority) shown as orange
+  pills with × to remove individual filters without resetting others
+- **Favicon** — ⚡ bolt icon in browser tab
+- **AI Enriched stat** — Shows "Llama-3 summaries" subtitle explaining what
+  the count means
+- **Tag recolor** — Edit button on each tag in Manage Tags modal opens an
+  inline editor with name input + mini color picker. Sends `PATCH /tags/:id`
+  with both `name` and `color`
 - **Pagination** — Prev/Next for multi-page results
 - **Toast notifications** — Success/error feedback
-- **Dark theme** — Cloudflare orange accent, DM Mono + Syne fonts
+- **Themes** — Dark (default) and Light mode. Inter for body text, Syne for
+  display headings (logo, stat numbers, titles)
 
 ---
 
@@ -141,14 +155,27 @@ Copy the `id` into **both** `wrangler.jsonc` and `wrangler.test.jsonc`:
 ```jsonc
 "kv_namespaces": [{ "binding": "CACHE", "id": "YOUR-KV-ID-HERE" }]
 ```
+###  5. Create a preview namespace for local dev isolation
 
-### 5. Create `.dev.vars` for local secrets
+```bash
+npx wrangler kv namespace create CACHE --preview
+```
+Copy the  **both** `id` (production) and preview_id(local) into  `wrangler.jsonc`:
+
+```jsonc
+"kv_namespaces": [{ "binding": "CACHE", "id": "YOUR-PRODUCTION-KV-ID", "preview_id": "YOUR-PREVIEW-KV-ID" }]
+```
+### 6. Create `.dev.vars` for local secrets
 
 ```
 JWT_SECRET=your-secret-minimum-32-characters-long
 REFRESH_TOKEN_SECRET=another-secret-minimum-32-characters-long
 ENVIRONMENT=development
 ```
+ENVIRONMENT=development   # REQUIRED — without this, dev_otp is never returned
+                          # in register/forgot-password responses, making local
+                          # testing impossible (OTP is only returned when not production)
+
 
 Generate a secure value — Windows PowerShell:
 
@@ -162,19 +189,19 @@ Mac/Linux:
 openssl rand -hex 32
 ```
 
-### 6. Apply schema locally
+### 7. Apply schema locally
 
 ```bash
 npm run db:migrate:local
 ```
 
-### 7. Seed test data (optional)
+### 8. Seed test data (optional)
 
 ```bash
 npx wrangler d1 execute task-manager-db --local --file=src/db/seed.sql
 ```
 
-### 8. Start dev server
+### 9. Start dev server
 
 ```bash
 npm run dev
@@ -376,6 +403,32 @@ curl -X POST http://localhost:8787/auth/refresh \
 
 ---
 
+---
+
+#### `POST /auth/logout`
+
+Revoke the current refresh token server-side. After this call the refresh
+token is permanently dead — `POST /auth/refresh` with the same token returns 401.
+The access token still works for up to 15 minutes (by design — short TTL is
+the revocation mechanism for access tokens).
+
+```bash
+curl -X POST http://localhost:8787/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"eyJhbGc..."}'
+
+# Or via HttpOnly cookie (browser — sent automatically)
+curl -X POST http://localhost:8787/auth/logout \
+  --cookie "refresh_token=eyJhbGc..."
+```
+
+**Response 200:** `{ "success": true, "data": { "message": "Logged out successfully" } }`
+
+> Always returns 200 — logout is idempotent. If the token is already expired
+> or invalid, the result is the same: logged out. The `refresh_token` HttpOnly
+> cookie is cleared via `Max-Age=0`.
+
+---
 #### `POST /auth/resend-otp`
 
 Resend the verification OTP to an unverified account. Does not work for already-verified accounts — use `POST /auth/forgot-password` instead.
@@ -411,6 +464,9 @@ curl "http://localhost:8787/tasks?priority=high" -H "Authorization: Bearer <toke
 # Search by title
 curl "http://localhost:8787/tasks?search=deploy" -H "Authorization: Bearer <token>"
 
+# Filter by tag
+curl "http://localhost:8787/tasks?tag_id=3" -H "Authorization: Bearer <token>"
+
 # Tasks due before a date
 curl "http://localhost:8787/tasks?due_before=2026-03-31" -H "Authorization: Bearer <token>"
 
@@ -428,6 +484,7 @@ curl "http://localhost:8787/tasks?status=todo&priority=critical&page=1&limit=5" 
 | `status`     | `todo` `in_progress` `done` `cancelled` | all     |
 | `priority`   | `low` `medium` `high` `critical`        | all     |
 | `search`     | any string                              | none    |
+| `tag_id`     | positive integer                        | none    |
 | `due_before` | `YYYY-MM-DD`                            | none    |
 | `page`       | integer ≥ 1                             | `1`     |
 | `limit`      | 1–100                                   | `20`    |
@@ -663,6 +720,14 @@ Update the Live URL at the top of this README with your actual `workers.dev` URL
 
 ## Architecture
 
+**Smart Placement:**
+`wrangler.jsonc` enables `"placement": { "mode": "smart" }`. Cloudflare
+automatically runs the Worker in the region geographically closest to the
+D1 database, not closest to the user. Since D1 queries dominate latency
+(5-10ms per query), minimising the Worker-to-D1 round trip is more valuable
+than minimising the user-to-Worker round trip. Free on all plans.
+
+
 ### Request pipeline
 
 Every request passes through five ordered layers before reaching a controller:
@@ -693,7 +758,7 @@ Request arrives
                          Applied to every outgoing response (creates new Response — Workers responses are immutable)
 ```
 
-### KV Store — three use cases
+### KV Store — four use cases
 
 **Task cache (per-user isolation):**
 
@@ -708,10 +773,15 @@ Why per-user: a shared "all_tasks" key would mix users' data
 **Rate limiting (sliding window):**
 
 ```
-Key:   rl:{ip}
-Value: request count
-TTL:   60 seconds — auto-reset creates sliding window effect
-Why KV: ~1ms reads vs ~5–10ms D1 round-trip for this hot path
+Key:   rl:{ip}:{windowMinute}   (windowMinute resets every 60 seconds)
+Value: request count for that minute
+TTL:   90 seconds (slightly longer than window — ensures key outlives the window)
+Why:   Fixed-window per minute. Old sliding-window design had a bug where
+       the TTL reset on every write, meaning a steady stream of requests
+       never allowed the counter to reset. The minute-bucket key gives a
+       clean reset every 60 seconds.
+Note:  KV has no atomic increment (no CAS). A small overage (~2-3 requests)
+       is possible under high concurrency. Acceptable for free-tier use.
 ```
 
 **OTP storage:**
@@ -722,6 +792,16 @@ Value: 6-digit code (cryptographically random)
 TTL:   600 seconds (10 minutes)
 Use:   Registration verification + forgot-password reset codes
 Note:  Single-use — deleted immediately on successful verification
+```
+
+**Refresh token revocation (jti denylist):**
+
+```
+Key:   rt:{jti}          (jti = UUID embedded in the JWT payload)
+Value: "1" (presence = token valid)
+TTL:   7 days (matches token expiry — KV auto-cleans when token would die anyway)
+Use:   POST /auth/logout deletes the key. POST /auth/refresh checks for key existence.
+       No key = token revoked → 401. Rotation: old key deleted, new key written on refresh.
 ```
 
 ### D1 schema
@@ -737,6 +817,18 @@ task_tags — composite PK (task_id, tag_id), CASCADE on both FKs
 ```
 
 Eight composite indexes: `(user_id, status)`, `(user_id, priority)`, `(user_id, due_date)` keep filter queries fast regardless of table size.
+
+
+**Tag fetching — batch query (no N+1):**
+`GET /tasks` with a page of 20 tasks uses exactly **3 DB queries** total:
+1. `COUNT(*)` to get total (parallel with query 2)
+2. `SELECT * FROM tasks WHERE ...` for the page
+3. One batch `SELECT ... WHERE task_id IN (?, ?, ...)` for all tags
+
+Before: 21 queries for 20 tasks (1 task query + 20 tag queries). A JOIN with
+`GROUP_CONCAT` or an IN-clause batch was the fix. Tags are grouped by
+`task_id` in JavaScript memory — no extra DB round trips.
+
 
 ### Password hashing
 
@@ -788,7 +880,7 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 
 | Layer            | Implementation                                                                                                                                                                                                                                                                                           |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth             | Access token: JWT HS256, 15min expiry. Refresh token: JWT HS256, 7-day expiry, HttpOnly `SameSite=None` cookie + body. Silent refresh on 401 — users never see session expired unless refresh token also expires |
+| Auth | Access token: JWT HS256, 15-min expiry (memory-only in browser). Refresh token: JWT HS256, 7-day expiry, `jti` stored in KV on issue. Token rotation on refresh (old jti deleted, new jti stored). `POST /auth/logout` deletes jti from KV — token permanently dead server-side. |
 | Passwords        | PBKDF2-SHA256, 100k iterations, unique salt per user. Reset via email OTP — new password hashed and saved, user signed in immediately |
 | User enumeration | Login and forgot-password always return same message regardless of whether email exists |
 | SQL injection    | All queries use D1 `.bind()` — zero string interpolation                                                                                                                                                                                                                                                 |
@@ -798,7 +890,7 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 | Task isolation   | Every query: `AND user_id = ?` — cross-user access impossible                                                                                                                                                                                                                                            |
 | OTP security     | Cryptographically random (Web Crypto), 10-min TTL, single-use (deleted on verify), timing-safe comparison |
 | Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
-| CORS             | Preflight handled before rate limiting — browsers send OPTIONS before every cross-origin request                                                                                                                                                                                                         |
+| CORS | Allowlist (not wildcard `*`) — only `taskflow-akash.workers.dev` and localhost dev ports accepted. Wildcard would allow any website to call the API with a logged-in user's credentials. Preflight handled before rate limiting. |
 
 ---
 
@@ -837,7 +929,14 @@ The assessment required demonstrating HTTP knowledge. A custom router and middle
 A single `index.html` with zero build tooling proves a complete product can ship without a framework. The whole frontend is reviewable in one file, loads instantly with no bundle parsing, and has zero supply-chain attack surface.
 
 **Why two wrangler configs?**
-Miniflare (the local Workers runtime used by vitest) cannot simulate Workers AI — it requires Cloudflare's actual GPU network. The test config omits the `ai` binding so Miniflare starts cleanly. The service guards `if (!env.AI) return` so tests pass without AI, and production gets real Llama-3 inference. This is the correct pattern: test your own code's logic, not third-party infrastructure.
+The test runner (vitest + `@cloudflare/vitest-pool-workers`) uses a version of
+Miniflare that cannot resolve the Workers AI binding and throws a module error
+if it is present. The test config omits `"ai"` so tests run cleanly.
+
+Note: `wrangler dev --local` DOES support Workers AI — it proxies inference
+calls to real Cloudflare GPU infrastructure even in local mode. Only the test
+runner needs the AI binding removed. The guard `if (!env.AI) return` now
+applies only to the test environment.
 
 **Why KV for caching, not D1?**
 D1 adds ~5–10ms per round trip. KV reads are ~1ms globally. The rate limiter runs on every single request — that cost compounds fast. KV is the right primitive for hot-path reads where eventual consistency is acceptable.
