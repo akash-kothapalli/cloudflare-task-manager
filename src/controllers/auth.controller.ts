@@ -24,7 +24,7 @@ import {
 	logoutUser,
 } from '../services/auth.service';
 import { validateRegisterInput, validateLoginInput } from '../utils/validation';
-import { ok, created, badRequest, noContent } from '../utils/response';
+import { ok, created, badRequest, noContent, unauthorized } from '../utils/response';
 import type { AuthContext } from '../middleware/auth.middleware';
 import type { Env } from '../types/env.types';
 
@@ -119,7 +119,7 @@ export async function refreshController(request: Request, env: Env): Promise<Res
 	const refreshToken = await extractRefreshToken(request);
 
 	if (!refreshToken) {
-		return badRequest('Refresh token required');
+		return unauthorized('Refresh token required');
 	}
 
 	const tokens = await refreshAccessToken(env, refreshToken);
