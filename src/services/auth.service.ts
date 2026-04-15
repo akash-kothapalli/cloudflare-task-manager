@@ -5,7 +5,7 @@
 //     - Access token:  JWT, 15 min, signed with JWT_SECRET
 //     - Refresh token: JWT, 7 days, signed with REFRESH_TOKEN_SECRET
 //
-//   Fix 5 — Refresh token revocation via KV denylist:
+//     — Refresh token revocation via KV denylist:
 //
 //     ISSUE:   generateRefreshToken() returns { token, jti }.
 //              issueTokenPair() stores jti in KV with 7-day TTL immediately.
@@ -72,17 +72,17 @@ function toPublic(user: {
 	updated_at: string;
 }): UserPublic {
 	return {
-		id:          user.id,
-		email:       user.email,
-		name:        user.name,
+		id: user.id,
+		email: user.email,
+		name: user.name,
 		is_verified: user.is_verified,
-		created_at:  user.created_at,
-		updated_at:  user.updated_at,
+		created_at: user.created_at,
+		updated_at: user.updated_at,
 	};
 }
 
 // ─── issueTokenPair ───────────────────────────────────────────────────────────
-// Fix 5 — now stores refresh token jti in KV immediately after generation.
+// — now stores refresh token jti in KV immediately after generation.
 //
 // Flow:
 //   1. Generate access token (no KV interaction — short-lived, no revocation needed)
@@ -110,8 +110,6 @@ async function issueTokenPair(
 	await env.CACHE.put(refreshTokenKey(jti), '1', {
 		expirationTtl: REFRESH_TOKEN_TTL,
 	});
-	console.log("KV WRITE:", refreshTokenKey(jti));
-
 	return { token, refreshToken };
 }
 
@@ -225,7 +223,7 @@ export async function loginUser(db: D1Database, env: Env, input: LoginInput): Pr
 }
 
 // ─── refreshAccessToken ───────────────────────────────────────────────────────
-// Fix 5 — now checks KV before issuing new tokens.
+//  — now checks KV before issuing new tokens.
 //
 // Steps:
 //   1. Verify JWT signature — rejects tampered/expired tokens fast
@@ -255,9 +253,9 @@ export async function refreshAccessToken(
 	// Step 2 — validate payload shape
 	if (
 		typeof payload.userId !== 'number' ||
-		typeof payload.email  !== 'string' ||
-		typeof payload.name   !== 'string' ||
-		typeof payload.jti    !== 'string'
+		typeof payload.email !== 'string' ||
+		typeof payload.name !== 'string' ||
+		typeof payload.jti !== 'string'
 	) {
 		throw AppError.unauthorized('Malformed refresh token');
 	}
@@ -281,7 +279,7 @@ export async function refreshAccessToken(
 }
 
 // ─── logoutUser ───────────────────────────────────────────────────────────────
-// Fix 5 — new function.
+// — new function.
 //
 // Client sends their refresh token in the request body.
 // We verify the signature (proves they own this token) then delete

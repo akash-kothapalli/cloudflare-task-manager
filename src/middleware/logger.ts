@@ -3,7 +3,7 @@
 //   - Structured JSON: every field is a key — parseable by Cloudflare Log Push,
 //     Datadog, Grafana, or any log aggregator
 //   - Cloudflare-specific headers: CF-Ray (request trace ID), CF-IPCountry,
-//     CF-Connecting-IP — shows HTTP header knowledge to the interviewer
+//     CF-Connecting-IP — shows HTTP header knowledge 
 //   - Request ID generated and echoed back in response header for tracing
 //   - Log level: "info" for normal, "warn" for 4xx, "error" for 5xx
 // =============================================================================

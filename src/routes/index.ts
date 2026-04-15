@@ -8,7 +8,7 @@
 //     4. Calls exactly one controller function
 //     5. Returns the Response
 //
-//   Fix 5 — POST /auth/logout added.
+//     — POST /auth/logout added.
 //     No requireAuth middleware needed — the refresh token in the body IS the
 //     proof of identity. An attacker without the token cannot logout the user.
 // =============================================================================
@@ -87,7 +87,7 @@ export async function router(request: Request, env: Env, ctx: ExecutionContext):
 		if (seg2 === 'reset-password'  && method === 'POST') return resetPasswordController(request, env);
 		if (seg2 === 'refresh'         && method === 'POST') return refreshController(request, env);
 
-		// Fix 5 — logout route
+		//  — logout route
 		// WHY no requireAuth here: the refresh token in the body is the credential.
 		// requireAuth checks the access token (Authorization header) which may
 		// already be expired when the user calls logout — that is a valid scenario.
@@ -124,7 +124,7 @@ export async function router(request: Request, env: Env, ctx: ExecutionContext):
 		}
 
 		if (method === 'GET')    return handleGetTaskById(id, env, auth);
-		if (method === 'PATCH')  return handleUpdateTask(id, request, env, auth);
+		if (method === 'PATCH')  return handleUpdateTask(id, request, env, auth, ctx);
 		if (method === 'DELETE') return handleDeleteTask(id, env, auth);
 	}
 

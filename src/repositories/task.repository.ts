@@ -3,7 +3,7 @@
 //
 //   Every query filters by user_id — tasks are always user-scoped.
 //
-//   KEY CHANGE — Fix 4: N+1 query eliminated in findAll()
+//   KEY CHANGE —  N+1 query eliminated in findAll()
 //   -------------------------------------------------------
 //   BEFORE: for each of N tasks, attachTags() fired a separate SQL query.
 //           20 tasks = 21 total DB round trips (1 task query + 20 tag queries).
@@ -14,7 +14,7 @@
 //   attachTags() is kept unchanged — still used by findById() which fetches
 //   exactly one task, so N+1 does not apply there.
 //
-//   Fix 9: tag_id filter added to findAll() — sidebar tag click wires to this.
+//    tag_id filter added to findAll() — sidebar tag click wires to this.
 // =============================================================================
 
 import type { Task, TaskResponse, CreateTaskInput, UpdateTaskInput, TaskQueryParams } from '../types/task.types';
@@ -156,11 +156,11 @@ export interface FindAllResult {
 //   priority   — exact match
 //   due_before — tasks due on or before this ISO date
 //   search     — LIKE match on title (wildcards escaped)
-//   tag_id     — only tasks that have this tag attached (Fix 9)
+//   tag_id     — only tasks that have this tag attached 
 //
 // Performance:
 //   - count + data queries run in parallel with Promise.all (one round trip)
-//   - tags fetched with ONE extra query via batchAttachTags (Fix 4)
+//   - tags fetched with ONE extra query via batchAttachTags 
 //   - total DB queries = 3 always, regardless of page size
 
 export async function findAll(db: D1Database, userId: number, params: TaskQueryParams): Promise<FindAllResult> {
@@ -197,7 +197,7 @@ export async function findAll(db: D1Database, userId: number, params: TaskQueryP
 		bindings.push(`%${params.search.replace(/[%_]/g, '\\$&')}%`);
 	}
 
-	// Fix 9 — tag filter:
+	// tag filter:
 	// EXISTS subquery: only include tasks that have a row in task_tags for this tag_id.
 	// WHY EXISTS instead of JOIN: a JOIN would multiply rows if a task has multiple tags,
 	// requiring DISTINCT and complicating the count query.

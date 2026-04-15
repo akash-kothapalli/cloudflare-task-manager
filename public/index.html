@@ -4,50 +4,54 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>TaskFlow — Cloudflare Task Manager</title>
-		<meta name="description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization — built on Cloudflare Workers + TypeScript." />
-		<meta property="og:title" content="TaskFlow – Edge Task Manager on Cloudflare Workers" />
-		<meta property="og:description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization." />
-		<meta property="og:url" content="https://cloudflare-task-manager.taskflow-akash.workers.dev" />
-		<meta property="og:type" content="website" />
-		<meta name="twitter:card" content="summary" />
-		<meta name="twitter:title" content="TaskFlow – Edge Task Manager on Cloudflare Workers" />
-		<meta name="twitter:description" content="A scalable task management platform with JWT authentication, REST APIs and AI-powered task summarization." />
+		<!-- Favicon: inline SVG data URI — no external file needed -->
+		<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a0a0b'/><text y='24' x='4' font-size='22' font-family='sans-serif' font-weight='900' fill='%23f97316'>⚡</text></svg>" />
+		<!-- Inter for body readability, Syne for display headings -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link
-			href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap"
-			rel="stylesheet"
-		/>
+		<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
 		<style>
-			/* ── Reset & Variables ─────────────────────────────────────────────── */
-			*,
-			*::before,
-			*::after {
-				box-sizing: border-box;
-				margin: 0;
-				padding: 0;
-			}
+			/* ── Reset & Variables ──────────────────────────────────────────────── */
+			*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+			/* DARK MODE (default) */
 			:root {
-				--bg: #0a0a0b;
-				--surface: #111113;
+				--bg:       #0a0a0b;
+				--surface:  #111113;
 				--surface2: #18181b;
-				--border: #27272a;
-				--border2: #3f3f46;
-				--text: #fafafa;
-				--muted: #71717a;
-				--accent: #f97316;
-				--accent2: #fb923c;
-				--green: #22c55e;
-				--yellow: #eab308;
-				--red: #ef4444;
-				--blue: #3b82f6;
-				--radius: 8px;
-				--font-mono: 'DM Mono', monospace;
-				--font-sans: 'Syne', sans-serif;
+				--border:   #27272a;
+				--border2:  #3f3f46;
+				--text:     #fafafa;
+				--muted:    #71717a;
+				--accent:   #f97316;
+				--accent2:  #fb923c;
+				--green:    #22c55e;
+				--yellow:   #eab308;
+				--red:      #ef4444;
+				--blue:     #3b82f6;
+				--radius:   8px;
+				--font-mono:    'DM Mono', monospace;
+				--font-sans:    'Inter', sans-serif;
+				--font-display: 'Syne', sans-serif;
 			}
 
-			html,
-			body {
+			/* LIGHT MODE */
+			[data-theme="light"] {
+				--bg:       #f4f4f5;
+				--surface:  #ffffff;
+				--surface2: #f1f1f3;
+				--border:   #e4e4e7;
+				--border2:  #d4d4d8;
+				--text:     #09090b;
+				--muted:    #71717a;
+				--accent:   #ea6d0a;
+				--accent2:  #f97316;
+				--green:    #16a34a;
+				--yellow:   #ca8a04;
+				--red:      #dc2626;
+				--blue:     #2563eb;
+			}
+
+			html, body {
 				height: 100%;
 				background: var(--bg);
 				color: var(--text);
@@ -55,1207 +59,292 @@
 				font-size: 14px;
 				line-height: 1.5;
 				-webkit-font-smoothing: antialiased;
+				transition: background 0.2s, color 0.2s;
 			}
 
-			/* ── Auth Screen ───────────────────────────────────────────────────── */
+			/* ── Auth Screen ────────────────────────────────────────────────────── */
 			#auth-screen {
 				min-height: 100vh;
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				background:
-					radial-gradient(ellipse 60% 40% at 70% 20%, rgba(249, 115, 22, 0.12) 0%, transparent 60%),
-					radial-gradient(ellipse 40% 60% at 20% 80%, rgba(249, 115, 22, 0.06) 0%, transparent 60%), var(--bg);
+					radial-gradient(ellipse 60% 40% at 70% 20%, rgba(249,115,22,0.12) 0%, transparent 60%),
+					radial-gradient(ellipse 40% 60% at 20% 80%, rgba(249,115,22,0.06) 0%, transparent 60%),
+					var(--bg);
 			}
-
 			.auth-card {
-				width: 100%;
-				max-width: 400px;
-				padding: 2.5rem;
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 16px;
-				animation: fadeUp 0.4s ease both;
+				width: 100%; max-width: 400px; padding: 2.5rem;
+				background: var(--surface); border: 1px solid var(--border);
+				border-radius: 16px; animation: fadeUp 0.4s ease both;
 			}
+			@keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 
-			@keyframes fadeUp {
-				from {
-					opacity: 0;
-					transform: translateY(16px);
-				}
+			.auth-logo { font-family: var(--font-display); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+			.auth-logo span { color: var(--accent); }
+			.auth-subtitle { color: var(--muted); font-size: 0.8rem; font-family: var(--font-mono); margin-bottom: 2rem; }
 
-				to {
-					opacity: 1;
-					transform: translateY(0);
-				}
-			}
+			.tab-row { display:flex; gap:0; margin-bottom:1.5rem; background:var(--surface2); border-radius:var(--radius); padding:3px; }
+			.tab-btn { flex:1; padding:0.5rem; border:none; border-radius:6px; background:transparent; color:var(--muted); font-family:var(--font-sans); font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.15s; }
+			.tab-btn.active { background:var(--accent); color:white; }
 
-			.auth-logo {
-				font-size: 1.5rem;
-				font-weight: 800;
-				letter-spacing: -0.03em;
-				margin-bottom: 0.25rem;
+			/* ── Form Elements ──────────────────────────────────────────────────── */
+			.field { margin-bottom: 1rem; }
+			.field label { display:block; font-size:0.72rem; font-family:var(--font-mono); color:var(--muted); margin-bottom:0.4rem; letter-spacing:0.05em; text-transform:uppercase; }
+			.field input, .field select, .field textarea {
+				width:100%; padding:0.65rem 0.85rem; background:var(--surface2);
+				border:1px solid var(--border); border-radius:var(--radius);
+				color:var(--text); font-family:var(--font-sans); font-size:0.9rem;
+				outline:none; transition:border-color 0.15s;
 			}
+			.field input:focus, .field select:focus, .field textarea:focus { border-color:var(--accent); }
+			.field select option { background:var(--surface2); }
+			.field textarea { resize:vertical; min-height:72px; }
+			.password-wrap { position:relative; }
+			.password-wrap input { padding-right:2.6rem !important; }
+			.eye-btn { position:absolute; right:0.75rem; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--muted); padding:0; font-size:1rem; line-height:1; transition:color 0.15s; }
+			.eye-btn:hover { color:var(--text); }
+			.forgot-link { display:block; text-align:right; font-size:0.75rem; color:var(--accent); font-family:var(--font-mono); cursor:pointer; margin-top:-0.4rem; margin-bottom:1rem; background:none; border:none; padding:0; }
+			.forgot-link:hover { text-decoration:underline; }
+			#forgot-screen { display:none; }
+			#forgot-screen.visible { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+			.reset-success { margin-top:1rem; padding:0.75rem 1rem; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:var(--radius); font-size:0.82rem; font-family:var(--font-mono); color:#4ade80; text-align:center; line-height:1.6; }
 
-			.auth-logo span {
-				color: var(--accent);
-			}
+			/* ── Buttons ────────────────────────────────────────────────────────── */
+			.btn { display:inline-flex; align-items:center; justify-content:center; gap:0.4rem; padding:0.65rem 1.2rem; border:none; border-radius:var(--radius); font-family:var(--font-sans); font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.15s; text-decoration:none; white-space:nowrap; }
+			.btn-primary { background:var(--accent); color:white; }
+			.btn-primary:hover { background:var(--accent2); transform:translateY(-1px); }
+			.btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+			.btn-ghost:hover { color:var(--text); border-color:var(--border2); }
+			.btn-danger { background:rgba(239,68,68,0.15); color:var(--red); border:1px solid rgba(239,68,68,0.3); }
+			.btn-danger:hover { background:rgba(239,68,68,0.25); }
+			.btn-full { width:100%; }
+			.btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 
-			.auth-subtitle {
-				color: var(--muted);
-				font-size: 0.8rem;
-				font-family: var(--font-mono);
-				margin-bottom: 2rem;
-			}
+			.error-msg { padding:0.6rem 0.85rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius); color:var(--red); font-size:0.8rem; margin-bottom:1rem; font-family:var(--font-mono); display:none; }
+			.error-msg.show { display:block; }
 
-			.tag-selector {
-				margin-top: 0.5rem;
-				padding: 0.5rem;
-				border: 1px solid #333;
-			}
-
-			.tab-row {
-				display: flex;
-				gap: 0;
-				margin-bottom: 1.5rem;
-				background: var(--surface2);
-				border-radius: var(--radius);
-				padding: 3px;
-			}
-
-			.tab-btn {
-				flex: 1;
-				padding: 0.5rem;
-				border: none;
-				border-radius: 6px;
-				background: transparent;
-				color: var(--muted);
-				font-family: var(--font-sans);
-				font-weight: 600;
-				font-size: 0.85rem;
-				cursor: pointer;
-				transition: all 0.15s;
-			}
-
-			.tab-btn.active {
-				background: var(--accent);
-				color: white;
-			}
-
-			/* ── Form Elements ─────────────────────────────────────────────────── */
-			.field {
-				margin-bottom: 1rem;
-			}
-
-			.password-wrap { position: relative; }
-			.password-wrap input { padding-right: 2.6rem !important; box-sizing: border-box; }
-			.eye-btn {
-				position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
-				background: none; border: none; cursor: pointer; color: var(--muted);
-				padding: 0; font-size: 1rem; line-height: 1; transition: color 0.15s;
-			}
-			.eye-btn:hover { color: var(--text); }
-			.forgot-link {
-				display: block; text-align: right; font-size: 0.75rem;
-				color: var(--accent); font-family: var(--font-mono); cursor: pointer;
-				margin-top: -0.4rem; margin-bottom: 1rem;
-				background: none; border: none; padding: 0;
-			}
-			.forgot-link:hover { text-decoration: underline; }
-			#forgot-screen { display: none; }
-			#forgot-screen.visible { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-			.reset-success {
-				margin-top: 1rem; padding: 0.75rem 1rem;
-				background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
-				border-radius: var(--radius); font-size: 0.82rem;
-				font-family: var(--font-mono); color: #4ade80; text-align: center; line-height: 1.6;
-			}
-
-			.field label {
-				display: block;
-				font-size: 0.75rem;
-				font-family: var(--font-mono);
-				color: var(--muted);
-				margin-bottom: 0.4rem;
-				letter-spacing: 0.05em;
-				text-transform: uppercase;
-			}
-
-			.field input,
-			.field select,
-			.field textarea {
-				width: 100%;
-				padding: 0.65rem 0.85rem;
-				background: var(--surface2);
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				color: var(--text);
-				font-family: var(--font-sans);
-				font-size: 0.9rem;
-				outline: none;
-				transition: border-color 0.15s;
-			}
-
-			.field input:focus,
-			.field select:focus,
-			.field textarea:focus {
-				border-color: var(--accent);
-			}
-
-			.field textarea {
-				resize: vertical;
-				min-height: 72px;
-			}
-
-			.field select option {
-				background: var(--surface2);
-			}
-
-			.btn {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				gap: 0.4rem;
-				padding: 0.65rem 1.2rem;
-				border: none;
-				border-radius: var(--radius);
-				font-family: var(--font-sans);
-				font-weight: 700;
-				font-size: 0.85rem;
-				cursor: pointer;
-				transition: all 0.15s;
-				text-decoration: none;
-				white-space: nowrap;
-			}
-
-			.btn-primary {
-				background: var(--accent);
-				color: white;
-			}
-
-			.btn-primary:hover {
-				background: var(--accent2);
-				transform: translateY(-1px);
-			}
-
-			.btn-ghost {
-				background: transparent;
-				color: var(--muted);
-				border: 1px solid var(--border);
-			}
-
-			.btn-ghost:hover {
-				color: var(--text);
-				border-color: var(--border2);
-			}
-
-			.btn-danger {
-				background: rgba(239, 68, 68, 0.15);
-				color: var(--red);
-				border: 1px solid rgba(239, 68, 68, 0.3);
-			}
-
-			.btn-danger:hover {
-				background: rgba(239, 68, 68, 0.25);
-			}
-
-			.btn-full {
-				width: 100%;
-			}
-
-			.btn:disabled {
-				opacity: 0.5;
-				cursor: not-allowed;
-				transform: none;
-			}
-
-			.error-msg {
-				padding: 0.6rem 0.85rem;
-				background: rgba(239, 68, 68, 0.1);
-				border: 1px solid rgba(239, 68, 68, 0.3);
-				border-radius: var(--radius);
-				color: var(--red);
-				font-size: 0.8rem;
-				margin-bottom: 1rem;
-				font-family: var(--font-mono);
-				display: none;
-			}
-
-			.error-msg.show {
-				display: block;
-			}
-
-			/* ── App Layout ────────────────────────────────────────────────────── */
-			#app-screen {
-				display: none;
-				min-height: 100vh;
-				flex-direction: column;
-			}
-
-			#app-screen.visible {
-				display: flex;
-			}
+			/* ── App Layout ─────────────────────────────────────────────────────── */
+			#app-screen { display:none; min-height:100vh; flex-direction:column; }
+			#app-screen.visible { display:flex; }
 
 			/* Top bar */
-			.topbar {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 0.85rem 1.5rem;
-				border-bottom: 1px solid var(--border);
-				background: var(--surface);
-				position: sticky;
-				top: 0;
-				z-index: 100;
-			}
+			.topbar { display:flex; align-items:center; justify-content:space-between; padding:0 1.5rem; height:52px; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:100; }
+			.topbar-left { display:flex; align-items:center; gap:0.75rem; }
+			/* Syne for logo — great display font, very readable at large sizes */
+			.logo { font-family: var(--font-display); font-size:1.15rem; font-weight:800; letter-spacing:-0.03em; }
+			.logo span { color:var(--accent); }
+			.env-badge { font-family:var(--font-mono); font-size:0.6rem; padding:2px 7px; background:rgba(249,115,22,0.15); border:1px solid rgba(249,115,22,0.3); border-radius:4px; color:var(--accent); text-transform:uppercase; letter-spacing:0.08em; }
+			.topbar-right { display:flex; align-items:center; gap:0.6rem; }
+			.user-pill { display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.65rem; background:var(--surface2); border:1px solid var(--border); border-radius:99px; font-size:0.78rem; }
+			.avatar { width:22px; height:22px; background:var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; color:white; }
 
-			.topbar-left {
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-			}
-
-			.logo {
-				font-size: 1.1rem;
-				font-weight: 800;
-				letter-spacing: -0.03em;
-			}
-
-			.logo span {
-				color: var(--accent);
-			}
-
-			.env-badge {
-				font-family: var(--font-mono);
-				font-size: 0.65rem;
-				padding: 2px 8px;
-				background: rgba(249, 115, 22, 0.15);
-				border: 1px solid rgba(249, 115, 22, 0.3);
-				border-radius: 4px;
-				color: var(--accent);
-				text-transform: uppercase;
-				letter-spacing: 0.08em;
-			}
-
-			.topbar-right {
-				display: flex;
-				align-items: center;
-				gap: 0.75rem;
-			}
-
-			.user-pill {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				padding: 0.35rem 0.75rem;
-				background: var(--surface2);
-				border: 1px solid var(--border);
-				border-radius: 99px;
-				font-size: 0.8rem;
-			}
-
-			.avatar {
-				width: 22px;
-				height: 22px;
-				background: var(--accent);
-				border-radius: 50%;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				font-size: 0.65rem;
-				font-weight: 700;
-				color: white;
-			}
+			/* Theme toggle button */
+			.theme-toggle { width:32px; height:32px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer; color:var(--muted); font-size:0.9rem; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+			.theme-toggle:hover { border-color:var(--border2); color:var(--text); }
 
 			/* Main layout */
-			.app-body {
-				display: flex;
-				flex: 1;
-				overflow: hidden;
-				height: calc(100vh - 53px);
-			}
+			.app-body { display:flex; flex:1; overflow:hidden; height:calc(100vh - 52px); }
 
 			/* Sidebar */
-			.sidebar {
-				width: 220px;
-				flex-shrink: 0;
-				border-right: 1px solid var(--border);
-				background: var(--surface);
-				padding: 1rem 0.75rem;
-				display: flex;
-				flex-direction: column;
-				gap: 0.25rem;
-				overflow-y: auto;
-			}
+			.sidebar { width:220px; flex-shrink:0; border-right:1px solid var(--border); background:var(--surface); padding:1rem 0.75rem; display:flex; flex-direction:column; gap:0.2rem; overflow-y:auto; }
+			.sidebar-section { font-family:var(--font-mono); font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:0.5rem 0.5rem 0.25rem; margin-top:0.5rem; }
+			.sidebar-item { display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.65rem; border-radius:6px; cursor:pointer; font-size:0.84rem; font-weight:500; color:var(--muted); transition:all 0.12s; border:none; background:transparent; width:100%; text-align:left; }
+			.sidebar-item:hover { background:var(--surface2); color:var(--text); }
+			.sidebar-item.active { background:rgba(249,115,22,0.12); color:var(--accent); }
+			.sidebar-count { margin-left:auto; font-family:var(--font-mono); font-size:0.68rem; color:var(--muted); }
 
-			.sidebar-section {
-				font-family: var(--font-mono);
-				font-size: 0.65rem;
-				color: var(--muted);
-				text-transform: uppercase;
-				letter-spacing: 0.08em;
-				padding: 0.5rem 0.5rem 0.25rem;
-				margin-top: 0.5rem;
-			}
-
-			.sidebar-item {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				padding: 0.5rem 0.65rem;
-				border-radius: 6px;
-				cursor: pointer;
-				font-size: 0.85rem;
-				font-weight: 600;
-				color: var(--muted);
-				transition: all 0.12s;
-				border: none;
-				background: transparent;
-				width: 100%;
-				text-align: left;
-			}
-
-			.sidebar-item:hover {
-				background: var(--surface2);
-				color: var(--text);
-			}
-
-			.sidebar-item.active {
-				background: rgba(249, 115, 22, 0.12);
-				color: var(--accent);
-			}
-
-			.sidebar-dot {
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				flex-shrink: 0;
-			}
-
-			.sidebar-count {
-				margin-left: auto;
-				font-family: var(--font-mono);
-				font-size: 0.7rem;
-				color: var(--muted);
-			}
-
-			/* Tag items in sidebar */
-			.tag-sidebar-row {
-				display: flex;
-				align-items: center;
-				gap: 0.4rem;
-				padding: 0.35rem 0.65rem;
-				border-radius: 6px;
-				font-size: 0.8rem;
-				color: var(--muted);
-			}
-
-			.tag-dot {
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				flex-shrink: 0;
-			}
-
-			.tag-remove {
-				margin-left: auto;
-				opacity: 0;
-				cursor: pointer;
-				color: var(--muted);
-				font-size: 0.9rem;
-				background: none;
-				border: none;
-				transition: opacity 0.1s;
-				line-height: 1;
-			}
-
-			.tag-sidebar-row:hover .tag-remove {
-				opacity: 1;
-			}
+			/* Tag rows in sidebar — now clickable for filter */
+			.tag-sidebar-row { display:flex; align-items:center; gap:0.4rem; padding:0.4rem 0.65rem; border-radius:6px; font-size:0.82rem; color:var(--muted); cursor:pointer; transition:all 0.12s; border:none; background:transparent; width:100%; text-align:left; }
+			.tag-sidebar-row:hover { background:var(--surface2); color:var(--text); }
+			.tag-sidebar-row.active { background:rgba(249,115,22,0.12); color:var(--accent); }
+			.tag-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 
 			/* Main content */
-			.main {
-				flex: 1;
-				overflow-y: auto;
-				padding: 1.5rem;
-			}
+			.main { flex:1; overflow-y:auto; padding:1.25rem 1.5rem; }
+
+			/* Filter pills bar — shown below toolbar when a tag is active */
+			.filter-pills { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem; align-items:center; }
+			.filter-pill { display:inline-flex; align-items:center; gap:0.3rem; padding:3px 10px 3px 8px; border-radius:99px; font-size:0.72rem; font-family:var(--font-mono); border:1px solid var(--border2); background:var(--surface2); color:var(--text); cursor:pointer; transition:all 0.12s; }
+			.filter-pill:hover { border-color:var(--accent); color:var(--accent); }
+			.filter-pill .pill-x { font-size:0.8rem; margin-left:2px; opacity:0.6; }
 
 			/* Toolbar */
-			.toolbar {
-				display: flex;
-				align-items: center;
-				gap: 0.75rem;
-				margin-bottom: 1.25rem;
-				flex-wrap: wrap;
-			}
-
-			.toolbar-title {
-				font-size: 1.1rem;
-				font-weight: 800;
-				letter-spacing: -0.02em;
-				margin-right: auto;
-			}
-
-			.filter-select {
-				padding: 0.45rem 0.75rem;
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				color: var(--text);
-				font-family: var(--font-sans);
-				font-size: 0.8rem;
-				cursor: pointer;
-				outline: none;
-			}
-
-			.filter-select:focus {
-				border-color: var(--accent);
-			}
-
-			/* Task cards grid */
-			.tasks-grid {
-				display: grid;
-				gap: 0.6rem;
-			}
-
-			.task-card {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 10px;
-				padding: 1rem 1.1rem;
-				display: grid;
-				grid-template-columns: 1fr auto;
-				gap: 0.5rem;
-				transition:
-					border-color 0.15s,
-					transform 0.15s;
-				animation: fadeUp 0.2s ease both;
-				cursor: pointer;
-			}
-
-			.task-card:hover {
-				border-color: var(--border2);
-				transform: translateY(-1px);
-			}
-
-			.task-card.done {
-				opacity: 0.6;
-			}
-
-			.task-card.done .task-title {
-				text-decoration: line-through;
-			}
-
-			.task-header {
-				display: flex;
-				align-items: flex-start;
-				gap: 0.6rem;
-			}
-
-			.task-title {
-				font-weight: 700;
-				font-size: 0.9rem;
-				line-height: 1.35;
-				flex: 1;
-			}
-
-			.task-desc {
-				font-size: 0.78rem;
-				color: var(--muted);
-				margin-top: 0.25rem;
-				line-height: 1.4;
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				line-clamp: 2;
-				overflow: hidden;
-			}
-
-			.task-meta {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				margin-top: 0.6rem;
-				flex-wrap: wrap;
-			}
-
-			.task-actions {
-				display: flex;
-				gap: 0.4rem;
-				align-items: flex-start;
-			}
-
-			.icon-btn {
-				width: 28px;
-				height: 28px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border: none;
-				border-radius: 6px;
-				background: transparent;
-				color: var(--muted);
-				cursor: pointer;
-				font-size: 0.85rem;
-				transition: all 0.12s;
-			}
-
-			.icon-btn:hover {
-				background: var(--surface2);
-				color: var(--text);
-			}
-
-			.icon-btn.delete:hover {
-				background: rgba(239, 68, 68, 0.15);
-				color: var(--red);
-			}
-
-			/* Badges */
-			.badge {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.3rem;
-				padding: 2px 8px;
-				border-radius: 4px;
-				font-size: 0.7rem;
-				font-family: var(--font-mono);
-				font-weight: 500;
-				letter-spacing: 0.02em;
-			}
-
-			.badge-todo {
-				background: rgba(113, 113, 122, 0.2);
-				color: var(--muted);
-			}
-
-			.badge-progress {
-				background: rgba(59, 130, 246, 0.15);
-				color: var(--blue);
-			}
-
-			.badge-review {
-				background: rgba(234, 179, 8, 0.15);
-				color: var(--yellow);
-			}
-
-			.badge-done {
-				background: rgba(34, 197, 94, 0.15);
-				color: var(--green);
-			}
-
-			.priority-dot {
-				width: 7px;
-				height: 7px;
-				border-radius: 50%;
-				flex-shrink: 0;
-			}
-
-			.prio-low {
-				background: var(--muted);
-			}
-
-			.prio-medium {
-				background: var(--yellow);
-			}
-
-			.prio-high {
-				background: var(--accent);
-			}
-
-			.prio-urgent {
-				background: var(--red);
-			}
-
-			/* AI insight strip */
-			.ai-strip {
-				margin-top: 0.5rem;
-				padding: 0.4rem 0.6rem;
-				background: rgba(249, 115, 22, 0.06);
-				border-left: 2px solid rgba(249, 115, 22, 0.4);
-				border-radius: 0 6px 6px 0;
-				font-size: 0.72rem;
-				color: var(--muted);
-				font-family: var(--font-mono);
-			}
-
-			.ai-strip .sentiment {
-				display: inline-block;
-				margin-right: 0.4rem;
-				font-weight: 500;
-			}
-
-			.sentiment-positive {
-				color: var(--green);
-			}
-
-			.sentiment-neutral {
-				color: var(--muted);
-			}
-
-			.sentiment-negative {
-				color: var(--red);
-			}
-
-			/* Empty state */
-			.empty-state {
-				text-align: center;
-				padding: 4rem 2rem;
-				color: var(--muted);
-			}
-
-			.empty-icon {
-				font-size: 2.5rem;
-				margin-bottom: 1rem;
-			}
-
-			.empty-state h3 {
-				font-size: 1rem;
-				font-weight: 700;
-				color: var(--text);
-				margin-bottom: 0.4rem;
-			}
-
-			.empty-state p {
-				font-size: 0.82rem;
-			}
-
-			/* Loading */
-			.loading {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				padding: 3rem;
-				gap: 0.5rem;
-				color: var(--muted);
-				font-family: var(--font-mono);
-				font-size: 0.8rem;
-			}
-
-			.spinner {
-				width: 16px;
-				height: 16px;
-				border: 2px solid var(--border);
-				border-top-color: var(--accent);
-				border-radius: 50%;
-				animation: spin 0.7s linear infinite;
-			}
-
-			@keyframes spin {
-				to {
-					transform: rotate(360deg);
-				}
-			}
-
-			/* Pagination */
-			.pagination {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 0.5rem;
-				margin-top: 1.25rem;
-				font-family: var(--font-mono);
-				font-size: 0.75rem;
-				color: var(--muted);
-			}
-
-			/* ── OTP Verification Screen ────────────────────────────────────── */
-			#otp-screen {
-				min-height: 100vh;
-				display: none;
-				align-items: center;
-				justify-content: center;
-				background:
-					radial-gradient(ellipse 60% 40% at 30% 20%, rgba(249, 115, 22, 0.1) 0%, transparent 60%),
-					radial-gradient(ellipse 40% 60% at 80% 80%, rgba(249, 115, 22, 0.06) 0%, transparent 60%), var(--bg);
-			}
-			#otp-screen.visible {
-				display: flex;
-			}
-
-			.otp-inputs {
-				display: flex;
-				gap: 0.5rem;
-				justify-content: center;
-				margin: 1.5rem 0;
-			}
-
-			.otp-digit {
-				width: 48px;
-				height: 56px;
-				text-align: center;
-				font-size: 1.5rem;
-				font-weight: 700;
-				font-family: var(--font-mono);
-				background: var(--surface2);
-				border: 2px solid var(--border);
-				border-radius: var(--radius);
-				color: var(--text);
-				caret-color: var(--accent);
-				transition: border-color 0.15s;
-				outline: none;
-			}
-
-			.otp-digit:focus {
-				border-color: var(--accent);
-				box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
-			}
-
-			.otp-digit.filled {
-				border-color: var(--accent);
-				color: var(--accent);
-			}
-
-			.otp-email-hint {
-				font-size: 0.8rem;
-				color: var(--muted);
-				font-family: var(--font-mono);
-				text-align: center;
-				margin-bottom: 0.5rem;
-			}
-
-			.otp-email-hint strong {
-				color: var(--text);
-			}
-
-			.otp-resend-row {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 0.5rem;
-				margin-top: 1rem;
-				font-size: 0.78rem;
-				color: var(--muted);
-				font-family: var(--font-mono);
-			}
-
-			.otp-resend-btn {
-				background: none;
-				border: none;
-				color: var(--accent);
-				cursor: pointer;
-				font-size: 0.78rem;
-				font-family: var(--font-mono);
-				padding: 0;
-				text-decoration: underline;
-				text-underline-offset: 2px;
-			}
-
-			.otp-resend-btn:disabled {
-				color: var(--muted);
-				cursor: not-allowed;
-				text-decoration: none;
-			}
-
-			.otp-timer {
-				font-variant-numeric: tabular-nums;
-			}
-
-			.otp-back-btn {
-				background: none;
-				border: none;
-				color: var(--muted);
-				cursor: pointer;
-				font-size: 0.78rem;
-				font-family: var(--font-mono);
-				padding: 0;
-				margin-top: 1rem;
-				display: block;
-				width: 100%;
-				text-align: center;
-			}
-
-			.otp-back-btn:hover {
-				color: var(--text);
-			}
-
-			/* ── Hamburger / Mobile Sidebar ─────────────────────────────────── */
-			.hamburger {
-				display: none;
-				flex-direction: column;
-				justify-content: center;
-				gap: 5px;
-				width: 36px;
-				height: 36px;
-				background: none;
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				cursor: pointer;
-				padding: 8px 7px;
-				transition: border-color 0.15s;
-			}
-
-			.hamburger:hover {
-				border-color: var(--border2);
-			}
-
-			.hamburger span {
-				display: block;
-				width: 100%;
-				height: 2px;
-				background: var(--muted);
-				border-radius: 2px;
-				transition: background 0.15s;
-			}
-
-			.hamburger:hover span {
-				background: var(--text);
-			}
-
-			.sidebar-overlay {
-				display: none;
-				position: fixed;
-				inset: 0;
-				background: rgba(0, 0, 0, 0.6);
-				backdrop-filter: blur(2px);
-				z-index: 40;
-			}
-
-			.sidebar-overlay.visible {
-				display: block;
-			}
-
-			/* ── Responsive ─────────────────────────────────────────────────── */
-			@media (max-width: 768px) {
-				.hamburger {
-					display: flex;
-				}
-
-				.topbar {
-					padding: 0 1rem;
-				}
-
-				.sidebar {
-					position: fixed;
-					top: 0;
-					left: 0;
-					height: 100vh;
-					width: 260px;
-					z-index: 50;
-					transform: translateX(-100%);
-					transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-					overflow-y: auto;
-					padding-top: 4rem;
-					box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
-				}
-
-				.sidebar.open {
-					transform: translateX(0);
-				}
-
-				.app-body {
-					flex-direction: column;
-				}
-
-				.main-content {
-					padding: 1rem;
-				}
-
-				.stats-row {
-					grid-template-columns: repeat(2, 1fr);
-					gap: 0.75rem;
-				}
-
-				.task-card {
-					padding: 0.75rem 1rem;
-				}
-
-				.toolbar {
-					flex-wrap: wrap;
-					gap: 0.5rem;
-				}
-
-				.toolbar select {
-					flex: 1;
-					min-width: 0;
-				}
-			}
-
-			@media (max-width: 480px) {
-				.auth-card {
-					margin: 1rem;
-					padding: 1.75rem;
-				}
-
-				.otp-digit {
-					width: 40px;
-					height: 48px;
-					font-size: 1.25rem;
-				}
-
-				.stats-row {
-					grid-template-columns: repeat(2, 1fr);
-				}
-
-				.task-actions {
-					flex-direction: column;
-					gap: 0.25rem;
-				}
-
-				.topbar-right .user-pill span {
-					display: none;
-				}
-			}
-
-			@media (min-width: 769px) {
-				.sidebar {
-					position: relative;
-					transform: none !important;
-				}
-			}
-
-			/* ── Modal ─────────────────────────────────────────────────────────── */
-			.modal-overlay {
-				position: fixed;
-				inset: 0;
-				background: rgba(0, 0, 0, 0.7);
-				backdrop-filter: blur(4px);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				z-index: 1000;
-				padding: 1rem;
-				opacity: 0;
-				pointer-events: none;
-				transition: opacity 0.2s;
-			}
-
-			.modal-overlay.show {
-				opacity: 1;
-				pointer-events: all;
-			}
-
-			.modal {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 14px;
-				width: 100%;
-				max-width: 480px;
-				padding: 1.75rem;
-				transform: scale(0.97);
-				transition: transform 0.2s;
-			}
-
-			.modal-overlay.show .modal {
-				transform: scale(1);
-			}
-
-			.modal-header {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				margin-bottom: 1.25rem;
-			}
-
-			.modal-title {
-				font-size: 1rem;
-				font-weight: 800;
-				letter-spacing: -0.02em;
-			}
-
-			.modal-close {
-				width: 28px;
-				height: 28px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border: none;
-				background: transparent;
-				color: var(--muted);
-				cursor: pointer;
-				border-radius: 6px;
-				font-size: 1.1rem;
-				transition: all 0.12s;
-			}
-
-			.modal-close:hover {
-				background: var(--surface2);
-				color: var(--text);
-			}
-
-			.modal-footer {
-				display: flex;
-				gap: 0.5rem;
-				justify-content: flex-end;
-				margin-top: 1.25rem;
-			}
+			.toolbar { display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; flex-wrap:wrap; }
+			.toolbar-title { font-family:var(--font-display); font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; margin-right:auto; }
+			.filter-select { padding:0.4rem 0.7rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:var(--font-sans); font-size:0.8rem; cursor:pointer; outline:none; }
+			.filter-select:focus { border-color:var(--accent); }
 
 			/* Stats bar */
-			.stats-bar {
-				display: flex;
-				gap: 0.75rem;
-				margin-bottom: 1.25rem;
-				flex-wrap: wrap;
-			}
+			.stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:0.65rem; margin-bottom:1.1rem; }
+			.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; }
+			.stat-val { font-family:var(--font-display); font-size:1.6rem; font-weight:800; letter-spacing:-0.04em; line-height:1; margin-bottom:0.15rem; }
+			.stat-label { font-size:0.65rem; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.04em; }
+			/*  AI Enriched has a subtitle explanation */
+			.stat-subtitle { font-size:0.6rem; color:var(--muted); font-family:var(--font-mono); margin-top:0.1rem; opacity:0.7; }
 
-			.stat-card {
-				flex: 1;
-				min-width: 100px;
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 10px;
-				padding: 0.75rem 1rem;
-			}
+			/* Task cards —  better spacing */
+			.tasks-grid { display:grid; gap:0.75rem; }
+			.task-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; display:grid; grid-template-columns:1fr auto; gap:0.5rem; transition:border-color 0.15s, transform 0.15s, box-shadow 0.15s; animation:fadeUp 0.2s ease both; }
+			.task-card:hover { border-color:var(--border2); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+			.task-card.done { opacity:0.6; }
+			.task-card.done .task-title { text-decoration:line-through; }
+			.task-header { display:flex; align-items:flex-start; gap:0.6rem; }
+			.task-title { font-weight:600; font-size:0.92rem; line-height:1.35; flex:1; }
+			.task-desc { font-size:0.78rem; color:var(--muted); margin-top:0.3rem; line-height:1.45; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+			.task-meta { display:flex; align-items:center; gap:0.45rem; margin-top:0.7rem; flex-wrap:wrap; }
+			.task-actions { display:flex; gap:0.35rem; align-items:flex-start; }
+			.icon-btn { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; font-size:0.88rem; transition:all 0.12s; }
+			.icon-btn:hover { background:var(--surface2); color:var(--text); }
+			.icon-btn.delete:hover { background:rgba(239,68,68,0.15); color:var(--red); }
 
-			.stat-val {
-				font-size: 1.6rem;
-				font-weight: 800;
-				letter-spacing: -0.04em;
-				line-height: 1;
-				margin-bottom: 0.2rem;
-			}
+			/* Badges */
+			.badge { display:inline-flex; align-items:center; gap:0.3rem; padding:2px 8px; border-radius:4px; font-size:0.68rem; font-family:var(--font-mono); font-weight:500; letter-spacing:0.02em; }
+			.badge-todo { background:rgba(113,113,122,0.2); color:var(--muted); }
+			.badge-progress { background:rgba(59,130,246,0.15); color:var(--blue); }
+			.badge-done { background:rgba(34,197,94,0.15); color:var(--green); }
+			.badge-cancelled { background:rgba(239,68,68,0.12); color:var(--red); }
 
-			.stat-label {
-				font-size: 0.7rem;
-				color: var(--muted);
-				font-family: var(--font-mono);
-			}
+			.priority-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+			.prio-low { background:var(--muted); }
+			.prio-medium { background:var(--yellow); }
+			.prio-high { background:var(--accent); }
+			.prio-critical { background:var(--red); }
 
-			/* Toast */
-			.toast-container {
-				position: fixed;
-				bottom: 1.5rem;
-				right: 1.5rem;
-				z-index: 9999;
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-			}
-
-			.toast {
-				padding: 0.65rem 1rem;
-				background: var(--surface2);
-				border: 1px solid var(--border);
-				border-radius: 8px;
-				font-size: 0.8rem;
-				font-family: var(--font-mono);
-				animation: slideIn 0.2s ease both;
-				max-width: 300px;
-			}
-
-			@keyframes slideIn {
-				from {
-					opacity: 0;
-					transform: translateX(12px);
-				}
-
-				to {
-					opacity: 1;
-					transform: translateX(0);
-				}
-			}
-
-			.toast.success {
-				border-color: rgba(34, 197, 94, 0.4);
-				color: var(--green);
-			}
-
-			.toast.error {
-				border-color: rgba(239, 68, 68, 0.4);
-				color: var(--red);
-			}
-
-			/* Scrollbar */
-			::-webkit-scrollbar {
-				width: 4px;
-			}
-
-			::-webkit-scrollbar-track {
-				background: transparent;
-			}
-
-			::-webkit-scrollbar-thumb {
-				background: var(--border);
-				border-radius: 4px;
-			}
-
-			/* Due date */
-			.due-date {
-				font-family: var(--font-mono);
-				font-size: 0.68rem;
-				color: var(--muted);
-			}
-
-			.due-date.overdue {
-				color: var(--red);
-			}
+			/* AI strip */
+			.ai-strip { margin-top:0.55rem; padding:0.4rem 0.65rem; background:rgba(249,115,22,0.06); border-left:2px solid rgba(249,115,22,0.4); border-radius:0 6px 6px 0; font-size:0.71rem; color:var(--muted); font-family:var(--font-mono); line-height:1.45; }
+			.ai-strip .sentiment { display:inline-block; margin-right:0.35rem; font-weight:500; }
+			.sentiment-positive { color:var(--green); }
+			.sentiment-neutral { color:var(--muted); }
+			.sentiment-negative { color:var(--red); }
 
 			/* Tag chips */
-			.tag-chip {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.25rem;
-				padding: 2px 6px;
-				border-radius: 4px;
-				font-size: 0.68rem;
-				font-family: var(--font-mono);
+			.tag-chip { display:inline-flex; align-items:center; gap:0.25rem; padding:2px 7px; border-radius:4px; font-size:0.67rem; font-family:var(--font-mono); }
+
+			/* Due date */
+			.due-date { font-family:var(--font-mono); font-size:0.67rem; color:var(--muted); }
+			.due-date.overdue { color:var(--red); }
+
+			/* Empty state */
+			.empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+			.empty-icon { font-size:2.5rem; margin-bottom:1rem; }
+			.empty-state h3 { font-size:1rem; font-weight:700; color:var(--text); margin-bottom:0.4rem; }
+			.empty-state p { font-size:0.82rem; }
+
+			/* Loading */
+			.loading { display:flex; align-items:center; justify-content:center; padding:3rem; gap:0.5rem; color:var(--muted); font-family:var(--font-mono); font-size:0.8rem; }
+			.spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+			@keyframes spin { to { transform:rotate(360deg); } }
+
+			/* Pagination */
+			.pagination { display:flex; align-items:center; justify-content:center; gap:0.5rem; margin-top:1.25rem; font-family:var(--font-mono); font-size:0.75rem; color:var(--muted); }
+
+			/* ── OTP Screen ─────────────────────────────────────────────────────── */
+			#otp-screen { min-height:100vh; display:none; align-items:center; justify-content:center; background:radial-gradient(ellipse 60% 40% at 30% 20%, rgba(249,115,22,0.1) 0%, transparent 60%), radial-gradient(ellipse 40% 60% at 80% 80%, rgba(249,115,22,0.06) 0%, transparent 60%), var(--bg); }
+			#otp-screen.visible { display:flex; }
+			.otp-inputs { display:flex; gap:0.5rem; justify-content:center; margin:1.5rem 0; }
+			.otp-digit { width:48px; height:56px; text-align:center; font-size:1.5rem; font-weight:700; font-family:var(--font-mono); background:var(--surface2); border:2px solid var(--border); border-radius:var(--radius); color:var(--text); caret-color:var(--accent); transition:border-color 0.15s; outline:none; }
+			.otp-digit:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(249,115,22,0.15); }
+			.otp-digit.filled { border-color:var(--accent); color:var(--accent); }
+			.otp-email-hint { font-size:0.8rem; color:var(--muted); font-family:var(--font-mono); text-align:center; margin-bottom:0.5rem; }
+			.otp-email-hint strong { color:var(--text); }
+			.otp-resend-row { display:flex; align-items:center; justify-content:center; gap:0.5rem; margin-top:1rem; font-size:0.78rem; color:var(--muted); font-family:var(--font-mono); }
+			.otp-resend-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.78rem; font-family:var(--font-mono); padding:0; text-decoration:underline; text-underline-offset:2px; }
+			.otp-resend-btn:disabled { color:var(--muted); cursor:not-allowed; text-decoration:none; }
+			.otp-back-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.78rem; font-family:var(--font-mono); padding:0; margin-top:1rem; display:block; width:100%; text-align:center; }
+			.otp-back-btn:hover { color:var(--text); }
+
+			/* ── Hamburger / Mobile Sidebar ─────────────────────────────────────── */
+			.hamburger { display:none; flex-direction:column; justify-content:center; gap:5px; width:36px; height:36px; background:none; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; padding:8px 7px; transition:border-color 0.15s; }
+			.hamburger:hover { border-color:var(--border2); }
+			.hamburger span { display:block; width:100%; height:2px; background:var(--muted); border-radius:2px; transition:background 0.15s; }
+			.hamburger:hover span { background:var(--text); }
+			.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(2px); z-index:40; }
+			.sidebar-overlay.visible { display:block; }
+
+			/* ── Responsive ─────────────────────────────────────────────────────── */
+			@media (max-width: 768px) {
+				.hamburger { display:flex; }
+				.topbar { padding:0 0.85rem; }
+				/* Hide username text on mobile — avatar stays */
+				.user-pill span:not(.avatar) { display:none; }
+				.sidebar {
+					position:fixed; top:0; left:0; height:100vh; width:260px;
+					z-index:50; transform:translateX(-100%);
+					transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+					overflow-y:auto; padding-top:1rem;
+					box-shadow:4px 0 24px rgba(0,0,0,0.5);
+				}
+				.sidebar.open { transform:translateX(0); }
+				.app-body { flex-direction:column; }
+				.stats-bar { grid-template-columns:repeat(2,1fr); gap:0.5rem; }
+				.main { padding:1rem; }
+				.task-card { padding:0.85rem 1rem; border-radius:10px; }
+				.toolbar { flex-wrap:wrap; gap:0.5rem; }
+				.toolbar select { flex:1; min-width:0; }
+				.toolbar-title { font-size:0.95rem; }
 			}
+			@media (max-width: 480px) {
+				.auth-card { margin:1rem; padding:1.75rem; }
+				.otp-digit { width:40px; height:48px; font-size:1.25rem; }
+				.stats-bar { grid-template-columns:repeat(2,1fr); }
+				.stat-val { font-size:1.3rem; }
+			}
+			@media (min-width: 769px) {
+				.sidebar { position:relative; transform:none !important; }
+			}
+
+			/* ── Modal ──────────────────────────────────────────────────────────── */
+			.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+			.modal-overlay.show { opacity:1; pointer-events:all; }
+			.modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; width:100%; max-width:480px; padding:1.75rem; transform:scale(0.97); transition:transform 0.2s; max-height:90vh; overflow-y:auto; }
+			.modal-overlay.show .modal { transform:scale(1); }
+			.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+			.modal-title { font-family:var(--font-display); font-size:1rem; font-weight:800; letter-spacing:-0.02em; }
+			.modal-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:6px; font-size:1.1rem; transition:all 0.12s; }
+			.modal-close:hover { background:var(--surface2); color:var(--text); }
+			.modal-footer { display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.25rem; }
 
 			/* Tags panel */
-			.tags-panel {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 10px;
-				padding: 1.25rem;
-			}
+			.tags-panel { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem; }
+			.tags-list { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; }
+			/* Tag item in modal — now has edit button */
+			.tag-item { display:flex; align-items:center; gap:0.35rem; padding:0.3rem 0.6rem; background:var(--surface2); border:1px solid var(--border); border-radius:6px; font-size:0.78rem; }
+			.tag-edit-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.72rem; font-family:var(--font-mono); padding:0 2px; opacity:0.8; transition:opacity 0.1s; }
+			.tag-edit-btn:hover { opacity:1; text-decoration:underline; }
+			.tag-x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.85rem; transition:color 0.1s; line-height:1; }
+			.tag-x:hover { color:var(--red); }
 
-			.tags-panel h3 {
-				font-size: 0.9rem;
-				font-weight: 700;
-				margin-bottom: 1rem;
-			}
+			/* Inline tag edit row */
+			.tag-edit-row { display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.5rem; background:var(--surface2); border:1px solid var(--accent); border-radius:6px; margin-bottom:0.35rem; flex-wrap:wrap; }
+			.tag-edit-row input[type="text"] { flex:1; min-width:80px; padding:0.2rem 0.4rem; background:transparent; border:none; color:var(--text); font-family:var(--font-sans); font-size:0.8rem; outline:none; }
+			.tag-edit-swatches { display:flex; gap:0.3rem; align-items:center; }
+			.tag-edit-swatch { width:16px; height:16px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:border-color 0.1s; flex-shrink:0; }
+			.tag-edit-swatch.selected { border-color:white; }
+			[data-theme="light"] .tag-edit-swatch.selected { border-color:#333; }
+			.tag-edit-save { padding:2px 8px; font-size:0.72rem; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; font-family:var(--font-sans); font-weight:600; }
+			.tag-edit-cancel { padding:2px 6px; font-size:0.72rem; background:transparent; color:var(--muted); border:none; cursor:pointer; font-family:var(--font-sans); }
 
-			.tags-list {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 0.5rem;
-				margin-bottom: 1rem;
-			}
+			/* Color picker row for create */
+			.color-row { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+			.color-swatch { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:border-color 0.1s; }
+			.color-swatch.selected { border-color:white; }
+			[data-theme="light"] .color-swatch.selected { border-color:#333; }
 
-			.tag-item {
-				display: flex;
-				align-items: center;
-				gap: 0.35rem;
-				padding: 0.3rem 0.6rem;
-				background: var(--surface2);
-				border: 1px solid var(--border);
-				border-radius: 6px;
-				font-size: 0.78rem;
-			}
+			/* Tag selector in task modal */
+			.tag-selector { margin-top:0.5rem; padding:0.5rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface2); }
 
-			.tag-x {
-				background: none;
-				border: none;
-				color: var(--muted);
-				cursor: pointer;
-				font-size: 0.85rem;
-				transition: color 0.1s;
-				line-height: 1;
-			}
+			/* Toast */
+			.toast-container { position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; }
+			.toast { padding:0.65rem 1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-size:0.8rem; font-family:var(--font-mono); animation:slideIn 0.2s ease both; max-width:300px; }
+			@keyframes slideIn { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:translateX(0); } }
+			.toast.success { border-color:rgba(34,197,94,0.4); color:var(--green); }
+			.toast.error { border-color:rgba(239,68,68,0.4); color:var(--red); }
 
-			.tag-x:hover {
-				color: var(--red);
-			}
-
-			/* Color picker row */
-			.color-row {
-				display: flex;
-				gap: 0.5rem;
-				align-items: center;
-				flex-wrap: wrap;
-			}
-
-			.color-swatch {
-				width: 22px;
-				height: 22px;
-				border-radius: 50%;
-				cursor: pointer;
-				border: 2px solid transparent;
-				transition: border-color 0.1s;
-			}
-
-			.color-swatch.selected {
-				border-color: white;
-			}
+			/* Scrollbar */
+			::-webkit-scrollbar { width:4px; }
+			::-webkit-scrollbar-track { background:transparent; }
+			::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
 		</style>
 	</head>
 
@@ -1265,20 +354,14 @@
 			<div class="auth-card">
 				<div class="auth-logo">Task<span>Flow</span></div>
 				<div class="auth-subtitle">// cloudflare workers · d1 · kv · workers ai</div>
-
 				<div class="tab-row">
 					<button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
 					<button class="tab-btn" onclick="switchTab('register')">Register</button>
 				</div>
-
 				<div id="auth-error" class="error-msg"></div>
-
 				<!-- Login form -->
 				<div id="login-form">
-					<div class="field">
-						<label>Email</label>
-						<input type="email" id="login-email" placeholder="you@example.com" />
-					</div>
+					<div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" /></div>
 					<div class="field">
 						<label>Password</label>
 						<div class="password-wrap">
@@ -1289,17 +372,10 @@
 					<button class="forgot-link" type="button" onclick="showForgotScreen()">Forgot password?</button>
 					<button class="btn btn-primary btn-full" onclick="doLogin()">Sign In →</button>
 				</div>
-
 				<!-- Register form -->
-				<div id="register-form" style="display: none">
-					<div class="field">
-						<label>Name</label>
-						<input type="text" id="reg-name" placeholder="Your name" />
-					</div>
-					<div class="field">
-						<label>Email</label>
-						<input type="email" id="reg-email" placeholder="you@example.com" />
-					</div>
+				<div id="register-form" style="display:none">
+					<div class="field"><label>Name</label><input type="text" id="reg-name" placeholder="Your name" /></div>
+					<div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="you@example.com" /></div>
 					<div class="field">
 						<label>Password (min 8 chars)</label>
 						<div class="password-wrap">
@@ -1312,21 +388,14 @@
 			</div>
 		</div>
 
-		<!-- ═══════════════════════════════════════════════════ OTP SCREEN -->
+		<!-- ═══════════════════════════════════════════════════════ OTP SCREEN -->
 		<div id="otp-screen">
 			<div class="auth-card">
 				<div class="auth-logo">Task<span>Flow</span></div>
 				<div class="auth-subtitle">// email verification</div>
-
-				<!-- Dev mode banner — only shown when SEND_EMAIL not configured -->
 				<div id="otp-dev-banner" style="display:none;margin-top:1rem;padding:0.75rem 1rem;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:var(--radius);font-size:0.8rem;font-family:var(--font-mono);color:var(--text);text-align:center;line-height:1.6"></div>
-
 				<div id="otp-error" class="error-msg" style="margin-top:1rem"></div>
-
-				<p class="otp-email-hint" style="margin-top:1.5rem">
-					We sent a 6-digit code to<br><strong id="otp-email-display"></strong>
-				</p>
-
+				<p class="otp-email-hint" style="margin-top:1.5rem">We sent a 6-digit code to<br><strong id="otp-email-display"></strong></p>
 				<div class="otp-inputs" id="otp-inputs">
 					<input class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" />
 					<input class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" />
@@ -1335,77 +404,43 @@
 					<input class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" />
 					<input class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" />
 				</div>
-
-				<button class="btn btn-primary btn-full" onclick="doVerifyOtp()" id="otp-submit-btn">
-					Verify & Sign In →
-				</button>
-
+				<button class="btn btn-primary btn-full" onclick="doVerifyOtp()" id="otp-submit-btn">Verify & Sign In →</button>
 				<div class="otp-resend-row">
 					<span>Didn't receive it?</span>
 					<button class="otp-resend-btn" id="otp-resend-btn" onclick="doResendOtp()">Resend code</button>
 					<span class="otp-timer" id="otp-timer" style="display:none"></span>
 				</div>
-
 				<button class="otp-back-btn" onclick="showAuthScreen()">← Back to sign in</button>
 			</div>
 		</div>
 
-
-		<!-- ════════════════════════════════════ FORGOT PASSWORD SCREEN -->
+		<!-- ════════════════════════════════════════ FORGOT PASSWORD SCREEN -->
 		<div id="forgot-screen">
 			<div class="auth-card">
 				<div class="auth-logo">Task<span>Flow</span></div>
 				<div class="auth-subtitle">// reset password</div>
 				<div id="forgot-error" class="error-msg" style="margin-top:1rem"></div>
 				<div id="forgot-success" class="reset-success" style="display:none"></div>
-
-				<!-- Step 1: enter email -->
 				<div id="forgot-step1">
-					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">
-						Enter your registered email — we'll send a 6-digit reset code.
-					</p>
-					<div class="field">
-						<label>Email</label>
-						<input type="email" id="forgot-email" placeholder="you@example.com" />
-					</div>
+					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">Enter your registered email — we'll send a 6-digit reset code.</p>
+					<div class="field"><label>Email</label><input type="email" id="forgot-email" placeholder="you@example.com" /></div>
 					<button class="btn btn-primary btn-full" onclick="doForgotRequest()">Send Reset Code →</button>
 				</div>
-
-				<!-- Step 2: OTP + new password -->
 				<div id="forgot-step2" style="display:none">
-					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">
-						Code sent to <strong id="forgot-email-display"></strong>
-					</p>
-					<div class="field">
-						<label>6-Digit Code</label>
-						<input type="text" id="forgot-otp-input" placeholder="000000" maxlength="6"
-							style="letter-spacing:0.3em;text-align:center;font-family:var(--font-mono);font-size:1.2rem" />
-					</div>
-					<div class="field">
-						<label>New Password (min 8 chars)</label>
-						<div class="password-wrap">
-							<input type="password" id="forgot-newpass" placeholder="••••••••" />
-							<button class="eye-btn" type="button" onclick="togglePassword('forgot-newpass',this)">👁</button>
-						</div>
-					</div>
-					<div class="field">
-						<label>Confirm New Password</label>
-						<div class="password-wrap">
-							<input type="password" id="forgot-confirmpass" placeholder="••••••••" />
-							<button class="eye-btn" type="button" onclick="togglePassword('forgot-confirmpass',this)">👁</button>
-						</div>
-					</div>
+					<p style="color:var(--muted);font-size:0.85rem;margin:1.5rem 0 1rem;text-align:center">Code sent to <strong id="forgot-email-display"></strong></p>
+					<div class="field"><label>6-Digit Code</label><input type="text" id="forgot-otp-input" placeholder="000000" maxlength="6" style="letter-spacing:0.3em;text-align:center;font-family:var(--font-mono);font-size:1.2rem" /></div>
+					<div class="field"><label>New Password (min 8 chars)</label><div class="password-wrap"><input type="password" id="forgot-newpass" placeholder="••••••••" /><button class="eye-btn" type="button" onclick="togglePassword('forgot-newpass',this)">👁</button></div></div>
+					<div class="field"><label>Confirm New Password</label><div class="password-wrap"><input type="password" id="forgot-confirmpass" placeholder="••••••••" /><button class="eye-btn" type="button" onclick="togglePassword('forgot-confirmpass',this)">👁</button></div></div>
 					<button class="btn btn-primary btn-full" onclick="doForgotReset()">Reset Password →</button>
 				</div>
-
 				<button class="otp-back-btn" onclick="showAuthScreen()">← Back to sign in</button>
 			</div>
 		</div>
 
 		<!-- ═══════════════════════════════════════════════════════ APP SCREEN -->
 		<div id="app-screen">
-			<!-- Sidebar overlay for mobile -->
 			<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 			<!-- Top bar -->
 			<div class="topbar">
 				<div class="topbar-left">
@@ -1416,11 +451,13 @@
 					<div class="env-badge">⚡ Workers</div>
 				</div>
 				<div class="topbar-right">
+					<!--  Dark/light mode toggle -->
+					<button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Toggle light/dark mode">🌙</button>
 					<div class="user-pill">
 						<div class="avatar" id="user-avatar">U</div>
 						<span id="user-name">User</span>
 					</div>
-					<button class="btn btn-ghost" onclick="doLogout()" style="padding: 0.4rem 0.8rem; font-size: 0.78rem">Sign out</button>
+					<button class="btn btn-ghost" onclick="doLogout()" style="padding:0.35rem 0.75rem;font-size:0.78rem">Sign out</button>
 				</div>
 			</div>
 
@@ -1428,55 +465,59 @@
 				<!-- Sidebar -->
 				<div class="sidebar" id="sidebar">
 					<div class="sidebar-section">Views</div>
-					<button class="sidebar-item active" id="filter-all" onclick="setFilter('all', this)">
+					<button class="sidebar-item active" id="filter-all" onclick="setStatusFilter('all', this)">
 						<span>📋</span> All Tasks <span class="sidebar-count" id="cnt-all">0</span>
 					</button>
-					<button class="sidebar-item" id="filter-todo" onclick="setFilter('todo', this)">
-						<span
-							style="width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; display: inline-block"
-						></span>
+					<button class="sidebar-item" id="filter-todo" onclick="setStatusFilter('todo', this)">
+						<span style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;display:inline-block"></span>
 						Todo <span class="sidebar-count" id="cnt-todo">0</span>
 					</button>
-					<button class="sidebar-item" id="filter-inprogress" onclick="setFilter('in_progress', this)">
-						<span
-							style="width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; display: inline-block"
-						></span>
+					<button class="sidebar-item" id="filter-inprogress" onclick="setStatusFilter('in_progress', this)">
+						<span style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>
 						In Progress <span class="sidebar-count" id="cnt-progress">0</span>
 					</button>
-
-					<button class="sidebar-item" id="filter-done" onclick="setFilter('done', this)">
-						<span
-							style="width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: inline-block"
-						></span>
+					<button class="sidebar-item" id="filter-done" onclick="setStatusFilter('done', this)">
+						<span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block"></span>
 						Done <span class="sidebar-count" id="cnt-done">0</span>
 					</button>
 
+					<!--  Tags section — clicking a tag filters by it -->
 					<div class="sidebar-section">Tags</div>
+					<!-- "All Tags" resets tag filter -->
+					<button class="tag-sidebar-row active" id="tag-filter-all" onclick="setTagFilter(null, this)">
+						<span class="tag-dot" style="background:var(--border2)"></span>
+						<span style="font-size:0.82rem;font-weight:500">All Tags</span>
+					</button>
 					<div id="sidebar-tags"></div>
-					<button class="sidebar-item" style="margin-top: 0.25rem" onclick="openTagsModal()"><span>＋</span> Manage Tags</button>
+					<button class="sidebar-item" style="margin-top:0.25rem;color:var(--muted)" onclick="openTagsModal()"><span>＋</span> Manage Tags</button>
 				</div>
 
 				<!-- Main -->
 				<div class="main">
-					<!-- Stats -->
+					<!-- Stats — UI-4: AI Enriched has subtitle -->
 					<div class="stats-bar" id="stats-bar">
 						<div class="stat-card">
 							<div class="stat-val" id="stat-total">0</div>
-							<div class="stat-label">TOTAL</div>
+							<div class="stat-label">Total</div>
 						</div>
 						<div class="stat-card">
-							<div class="stat-val" style="color: var(--blue)" id="stat-progress">0</div>
-							<div class="stat-label">IN PROGRESS</div>
+							<div class="stat-val" style="color:var(--blue)" id="stat-progress">0</div>
+							<div class="stat-label">In Progress</div>
 						</div>
 						<div class="stat-card">
-							<div class="stat-val" style="color: var(--green)" id="stat-done">0</div>
-							<div class="stat-label">DONE</div>
+							<div class="stat-val" style="color:var(--green)" id="stat-done">0</div>
+							<div class="stat-label">Done</div>
 						</div>
 						<div class="stat-card">
-							<div class="stat-val" style="color: var(--accent)" id="stat-ai">0</div>
-							<div class="stat-label">AI ENRICHED</div>
+							<div class="stat-val" style="color:var(--accent)" id="stat-ai">0</div>
+							<div class="stat-label">AI Enriched</div>
+							<!--  explanation line -->
+							<div class="stat-subtitle">Llama-3 summaries</div>
 						</div>
 					</div>
+
+					<!-- Active filter pills  -->
+					<div class="filter-pills" id="filter-pills" style="display:none"></div>
 
 					<!-- Toolbar -->
 					<div class="toolbar">
@@ -1493,14 +534,12 @@
 
 					<!-- Task list -->
 					<div id="tasks-container"></div>
-
-					<!-- Pagination -->
 					<div class="pagination" id="pagination"></div>
 				</div>
 			</div>
 		</div>
 
-		<!-- ═══════════════════════════════════════════════════ TASK MODAL -->
+		<!-- ══════════════════════════════════════════════════════ TASK MODAL -->
 		<div class="modal-overlay" id="task-modal">
 			<div class="modal">
 				<div class="modal-header">
@@ -1508,42 +547,18 @@
 					<button class="modal-close" onclick="closeModal('task-modal')">✕</button>
 				</div>
 				<div id="modal-error" class="error-msg"></div>
-				<div class="field">
-					<label>Title *</label>
-					<input type="text" id="task-title" placeholder="What needs to be done?" />
-				</div>
-				<div class="field">
-					<label>Description</label>
-					<textarea id="task-desc" placeholder="Optional details..."></textarea>
-				</div>
-				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem">
-					<div class="field">
-						<label>Status</label>
-						<select id="task-status">
-							<option value="todo">Todo</option>
-							<option value="in_progress">In Progress</option>
-							<option value="done">Done</option>
-							<option value="cancelled">Cancelled</option>
-						</select>
+				<div class="field"><label>Title *</label><input type="text" id="task-title" placeholder="What needs to be done?" /></div>
+				<div class="field"><label>Description</label><textarea id="task-desc" placeholder="Optional details..."></textarea></div>
+				<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+					<div class="field"><label>Status</label>
+						<select id="task-status"><option value="todo">Todo</option><option value="in_progress">In Progress</option><option value="done">Done</option><option value="cancelled">Cancelled</option></select>
 					</div>
-					<div class="field">
-						<label>Priority</label>
-						<select id="task-priority">
-							<option value="low">Low</option>
-							<option value="medium">Medium</option>
-							<option value="high">High</option>
-							<option value="critical">Critical</option>
-						</select>
+					<div class="field"><label>Priority</label>
+						<select id="task-priority"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
 					</div>
 				</div>
-				<div class="field">
-					<label>Due Date</label>
-					<input type="date" id="task-due" />
-				</div>
-				<div class="field">
-					<label>Tags</label>
-					<div id="task-tag-selector" class="tag-selector"></div>
-				</div>
+				<div class="field"><label>Due Date</label><input type="date" id="task-due" /></div>
+				<div class="field"><label>Tags</label><div id="task-tag-selector" class="tag-selector"></div></div>
 				<div class="modal-footer">
 					<button class="btn btn-ghost" onclick="closeModal('task-modal')">Cancel</button>
 					<button class="btn btn-primary" id="modal-save-btn" onclick="saveTask()">Create Task</button>
@@ -1551,35 +566,23 @@
 			</div>
 		</div>
 
-		<!-- ═══════════════════════════════════════════════════ TAGS MODAL -->
+		<!-- ══════════════════════════════════════════════════════ TAGS MODAL -->
 		<div class="modal-overlay" id="tags-modal">
 			<div class="modal">
 				<div class="modal-header">
 					<div class="modal-title">Manage Tags</div>
 					<button class="modal-close" onclick="closeModal('tags-modal')">✕</button>
 				</div>
-				<div class="tags-panel" style="border: none; padding: 0">
+				<div class="tags-panel" style="border:none;padding:0">
+					<!-- Tag list with edit + delete — rendered by renderTagsModal() -->
 					<div class="tags-list" id="tags-list"></div>
-					<div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end">
-						<div class="field" style="margin-bottom: 0">
-							<label>New Tag Name</label>
-							<input type="text" id="new-tag-name" placeholder="e.g. backend" />
-						</div>
-						<button class="btn btn-primary" onclick="createTag()" style="height: 38px">Add</button>
+					<!-- Create new tag -->
+					<div style="display:grid;grid-template-columns:1fr auto;gap:0.5rem;align-items:end">
+						<div class="field" style="margin-bottom:0"><label>New Tag Name</label><input type="text" id="new-tag-name" placeholder="e.g. backend" /></div>
+						<button class="btn btn-primary" onclick="createTag()" style="height:38px">Add</button>
 					</div>
-					<div style="margin-top: 0.75rem">
-						<label
-							style="
-								font-family: var(--font-mono);
-								font-size: 0.65rem;
-								color: var(--muted);
-								text-transform: uppercase;
-								letter-spacing: 0.05em;
-								display: block;
-								margin-bottom: 0.4rem;
-							"
-							>Color</label
-						>
+					<div style="margin-top:0.75rem">
+						<label style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:0.4rem">Color</label>
 						<div class="color-row" id="color-row"></div>
 					</div>
 				</div>
@@ -1590,75 +593,83 @@
 		<div class="toast-container" id="toast-container"></div>
 
 		<script>
-			// ═══════════════════════════════════════════════════════════════════════════
-			// Config — update API_BASE if your Worker is deployed to a custom domain
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
+			// Config
+			// ═══════════════════════════════════════════════════════════════════
+			const API_BASE = '';
 
-			// When serving this file FROM the same Worker (static assets binding),
-			// use relative URLs so it works both locally and on workers.dev
-			const API_BASE = ''; // e.g. '' = same origin, or 'https://your-worker.workers.dev'
-
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// State
-			// ═══════════════════════════════════════════════════════════════════════════
-			// SECURITY: Access token stored in JS memory only — not localStorage.
-			// localStorage is readable by any JS (XSS risk). In-memory means the
-			// token is lost on page refresh, but the refresh token (stored in a
-			// separate localStorage key as fallback) is used to silently re-issue it.
-			// The server also sets refresh_token as an HttpOnly cookie — browsers
-			// send it automatically, making localStorage the fallback for API clients.
-			let token = null; // access token — memory only, never persisted
-			let currentUser = null;
-			let allTasks = [];
-			let tags = [];
-			let currentFilter = 'all';
-			let currentPage = 1;
-			let totalPages = 1;
-			let editingTaskId = null;
-			let pendingOtpEmail = null; // set after register, used by OTP screen
-			let otpResendTimer = null;
-			const PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#71717a'];
-			let selectedColor = PALETTE[4];
+			// ═══════════════════════════════════════════════════════════════════
+			let token          = null;
+			let currentUser    = null;
+			let allTasks       = [];
+			let tags           = [];
+			let currentFilter  = 'all';   // status filter
+			let currentTagId   = null;     // tag filter 
+			let currentPage    = 1;
+			let totalPages     = 1;
+			let editingTaskId  = null;
+			let editingTagId   = null;     // which tag is in inline-edit mode
+			let editingTagColor = null;    // selected color for the tag being edited
+			let pendingOtpEmail = null;
+			let otpResendTimer  = null;
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			const PALETTE = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#71717a'];
+			let selectedColor = PALETTE[4]; // for new tag creation
+
+			// ═══════════════════════════════════════════════════════════════════
+			// Theme toggle — UI-6
+			// ═══════════════════════════════════════════════════════════════════
+			function toggleTheme() {
+				const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+				const next = isLight ? 'dark' : 'light';
+				document.documentElement.setAttribute('data-theme', next === 'dark' ? '' : 'light');
+				document.getElementById('theme-btn').textContent = next === 'dark' ? '🌙' : '☀️';
+				localStorage.setItem('tf_theme', next);
+			}
+
+			// Apply saved theme on load
+			(function initTheme() {
+				const saved = localStorage.getItem('tf_theme');
+				if (saved === 'light') {
+					document.documentElement.setAttribute('data-theme', 'light');
+					// theme-btn not rendered yet at this point — set after DOM ready
+					document.addEventListener('DOMContentLoaded', () => {
+						const btn = document.getElementById('theme-btn');
+						if (btn) btn.textContent = '☀️';
+					});
+				}
+			})();
+
+			// ═══════════════════════════════════════════════════════════════════
 			// API helper
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			async function api(method, path, body, _retry = false) {
 				const headers = { 'Content-Type': 'application/json' };
 				if (token) headers['Authorization'] = `Bearer ${token}`;
 				const res = await fetch(`${API_BASE}${path}`, {
-					method,
-					headers,
-					credentials: 'include', // sends HttpOnly refresh_token cookie automatically
+					method, headers, credentials: 'include',
 					body: body ? JSON.stringify(body) : undefined,
 				});
 				let data = {};
 				try { data = await res.json(); } catch { data = { error: { message: 'Invalid server response' } }; }
-
-				// 401: try to silently refresh the access token once
 				if (res.status === 401 && !_retry) {
 					const refreshed = await tryRefresh();
-					if (refreshed) {
-						// Retry the original request with the new token
-						return api(method, path, body, true);
-					}
+					if (refreshed) return api(method, path, body, true);
 					doLogout();
 					toast('Session expired — please sign in again', 'error');
 				}
 				return { ok: res.ok, status: res.status, data };
 			}
 
-			// Attempt to get a new access token using the refresh token.
-			// Returns true on success, false if refresh fails (session truly expired).
 			async function tryRefresh() {
 				try {
 					const storedRefresh = localStorage.getItem('tf_refresh');
 					const body = storedRefresh ? { refreshToken: storedRefresh } : undefined;
 					const res = await fetch(`${API_BASE}/auth/refresh`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						credentials: 'include',
-						body: body ? JSON.stringify(body) : undefined,
+						method: 'POST', headers: { 'Content-Type': 'application/json' },
+						credentials: 'include', body: body ? JSON.stringify(body) : undefined,
 					});
 					if (!res.ok) return false;
 					const data = await res.json();
@@ -1667,14 +678,12 @@
 					token = d.token;
 					if (d.refreshToken) localStorage.setItem('tf_refresh', d.refreshToken);
 					return true;
-				} catch {
-					return false;
-				}
+				} catch { return false; }
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Auth
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			function switchTab(tab) {
 				document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
 				document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
@@ -1683,15 +692,8 @@
 				});
 				hideAuthError();
 			}
-
-			function showAuthError(msg) {
-				const el = document.getElementById('auth-error');
-				el.textContent = msg;
-				el.classList.add('show');
-			}
-			function hideAuthError() {
-				document.getElementById('auth-error').classList.remove('show');
-			}
+			function showAuthError(msg) { const el = document.getElementById('auth-error'); el.textContent = msg; el.classList.add('show'); }
+			function hideAuthError() { document.getElementById('auth-error').classList.remove('show'); }
 
 			async function doLogin() {
 				hideAuthError();
@@ -1714,7 +716,6 @@
 				if (!name || !email || !password) return showAuthError('All fields required.');
 				const { ok, data } = await api('POST', '/auth/register', { name, email, password });
 				if (!ok) return showAuthError(data?.error?.message || 'Registration failed.');
-				// Registration returns requiresVerification — show OTP screen
 				if (data.data?.requiresVerification) {
 					pendingOtpEmail = data.data.email || email;
 					showOtpScreen(pendingOtpEmail, data.data.dev_otp);
@@ -1726,39 +727,24 @@
 				}
 			}
 
-			// ─── OTP Screen ────────────────────────────────────────────────────────────
-
+			// ── OTP Screen ────────────────────────────────────────────────────
 			function showOtpScreen(email, devOtp) {
 				document.getElementById('auth-screen').style.display = 'none';
 				document.getElementById('otp-screen').classList.add('visible');
 				document.getElementById('otp-email-display').textContent = email;
 				document.getElementById('otp-error').textContent = '';
-
 				const devBanner = document.getElementById('otp-dev-banner');
 				const inputs = document.querySelectorAll('.otp-digit');
-
 				if (devOtp) {
-					// Show dev banner
 					devBanner.style.display = 'block';
 					devBanner.innerHTML = `🛠️ <strong>Dev mode</strong> — your OTP is: <strong style="font-family:var(--font-mono);font-size:1.1rem;letter-spacing:0.15em;color:var(--accent)">${devOtp}</strong>`;
-					// Fill digits
-					devOtp.split('').forEach((ch, i) => {
-						if (inputs[i]) {
-							inputs[i].value = ch;
-							inputs[i].classList.add('filled');
-						}
-					});
-					// Auto-submit after short delay so the UI renders first
+					devOtp.split('').forEach((ch, i) => { if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); } });
 					setTimeout(() => doVerifyOtp(), 300);
 				} else {
 					devBanner.style.display = 'none';
-					inputs.forEach((inp) => {
-						inp.value = '';
-						inp.classList.remove('filled');
-					});
+					inputs.forEach((inp) => { inp.value = ''; inp.classList.remove('filled'); });
 					inputs[0].focus();
 				}
-
 				startResendCooldown(30);
 			}
 
@@ -1769,7 +755,6 @@
 				clearInterval(otpResendTimer);
 			}
 
-			// ── Show / hide password ──────────────────────────────────────────────────
 			function togglePassword(id, btn) {
 				const inp = document.getElementById(id);
 				const show = inp.type === 'password';
@@ -1778,7 +763,6 @@
 				btn.title = show ? 'Hide password' : 'Show password';
 			}
 
-			// ── Forgot password ───────────────────────────────────────────────────────
 			function showForgotScreen() {
 				document.getElementById('auth-screen').style.display = 'none';
 				document.getElementById('forgot-screen').classList.add('visible');
@@ -1786,62 +770,44 @@
 				document.getElementById('forgot-success').style.display = 'none';
 				document.getElementById('forgot-step1').style.display = '';
 				document.getElementById('forgot-step2').style.display = 'none';
-				['forgot-email','forgot-otp-input','forgot-newpass','forgot-confirmpass']
-					.forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+				['forgot-email','forgot-otp-input','forgot-newpass','forgot-confirmpass'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
 			}
 
 			async function doForgotRequest() {
-				const errEl = document.getElementById('forgot-error');
-				errEl.classList.remove('show');
+				const errEl = document.getElementById('forgot-error'); errEl.classList.remove('show');
 				const email = document.getElementById('forgot-email').value.trim();
 				if (!email) { errEl.textContent = 'Email is required.'; errEl.classList.add('show'); return; }
-				const btn = event.target;
-				btn.disabled = true; btn.textContent = 'Sending…';
+				const btn = event.target; btn.disabled = true; btn.textContent = 'Sending…';
 				const { ok, data } = await api('POST', '/auth/forgot-password', { email });
 				btn.disabled = false; btn.textContent = 'Send Reset Code →';
-				if (!ok) {
-					errEl.textContent = data?.error?.message || 'No account found with that email.';
-					errEl.classList.add('show'); return;
-				}
+				if (!ok) { errEl.textContent = data?.error?.message || 'No account found.'; errEl.classList.add('show'); return; }
 				document.getElementById('forgot-email-display').textContent = email;
 				document.getElementById('forgot-step1').style.display = 'none';
 				document.getElementById('forgot-step2').style.display = '';
-				if (data.data?.dev_otp) {
-					const s = document.getElementById('forgot-success');
-					s.textContent = 'Dev mode — OTP: ' + data.data.dev_otp;
-					s.style.display = '';
-				}
+				if (data.data?.dev_otp) { const s = document.getElementById('forgot-success'); s.textContent = 'Dev mode — OTP: ' + data.data.dev_otp; s.style.display = ''; }
 			}
 
 			async function doForgotReset() {
-				const errEl = document.getElementById('forgot-error');
-				errEl.classList.remove('show');
+				const errEl = document.getElementById('forgot-error'); errEl.classList.remove('show');
 				const email   = document.getElementById('forgot-email').value.trim();
 				const otp     = document.getElementById('forgot-otp-input').value.trim();
 				const newPass = document.getElementById('forgot-newpass').value;
 				const confirm = document.getElementById('forgot-confirmpass').value;
-				if (otp.length !== 6)     { errEl.textContent = 'Enter the 6-digit code.'; errEl.classList.add('show'); return; }
-				if (newPass.length < 8)   { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
-				if (newPass !== confirm)   { errEl.textContent = 'Passwords do not match.'; errEl.classList.add('show'); return; }
-				const btn = event.target;
-				btn.disabled = true; btn.textContent = 'Resetting…';
-				// POST /auth/reset-password — verifies OTP, saves new password, signs in
+				if (otp.length !== 6)   { errEl.textContent = 'Enter the 6-digit code.'; errEl.classList.add('show'); return; }
+				if (newPass.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
+				if (newPass !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.classList.add('show'); return; }
+				const btn = event.target; btn.disabled = true; btn.textContent = 'Resetting…';
 				const { ok, data } = await api('POST', '/auth/reset-password', { email, otp, newPassword: newPass });
 				btn.disabled = false; btn.textContent = 'Reset Password →';
-				if (!ok) {
-					errEl.textContent = data?.error?.message || 'Invalid or expired code.';
-					errEl.classList.add('show'); return;
-				}
+				if (!ok) { errEl.textContent = data?.error?.message || 'Invalid or expired code.'; errEl.classList.add('show'); return; }
 				token = data.data.token;
 				if (data.data.refreshToken) localStorage.setItem('tf_refresh', data.data.refreshToken);
 				currentUser = data.data.user;
-				const s = document.getElementById('forgot-success');
-				s.textContent = '✓ Password reset successfully! Signing you in…';
-				s.style.display = '';
+				const s = document.getElementById('forgot-success'); s.textContent = '✓ Password reset successfully! Signing you in…'; s.style.display = '';
 				setTimeout(() => { showAuthScreen(); enterApp(); }, 1500);
 			}
 
-			// Wire up OTP digit inputs — auto-advance, backspace, paste
+			// Wire OTP digit inputs
 			(function initOtpInputs() {
 				const inputs = Array.from(document.querySelectorAll('.otp-digit'));
 				inputs.forEach((inp, i) => {
@@ -1849,28 +815,18 @@
 						const val = e.target.value.replace(/\D/g, '');
 						inp.value = val.slice(-1);
 						inp.classList.toggle('filled', inp.value !== '');
-						if (inp.value && i < inputs.length - 1) {
-							inputs[i + 1].focus();
-						}
-						// Auto-submit when all 6 filled
+						if (inp.value && i < inputs.length - 1) inputs[i+1].focus();
 						if (inputs.every((d) => d.value)) doVerifyOtp();
 					});
 					inp.addEventListener('keydown', (e) => {
 						if (e.key === 'Backspace' && !inp.value && i > 0) {
-							inputs[i - 1].value = '';
-							inputs[i - 1].classList.remove('filled');
-							inputs[i - 1].focus();
+							inputs[i-1].value = ''; inputs[i-1].classList.remove('filled'); inputs[i-1].focus();
 						}
 					});
 					inp.addEventListener('paste', (e) => {
 						e.preventDefault();
 						const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-						pasted.slice(0, 6).split('').forEach((ch, j) => {
-							if (inputs[j]) {
-								inputs[j].value = ch;
-								inputs[j].classList.add('filled');
-							}
-						});
+						pasted.slice(0,6).split('').forEach((ch, j) => { if (inputs[j]) { inputs[j].value = ch; inputs[j].classList.add('filled'); } });
 						if (pasted.length >= 6) doVerifyOtp();
 						else if (inputs[pasted.length]) inputs[pasted.length].focus();
 					});
@@ -1883,25 +839,16 @@
 				if (otp.length < 6) return showOtpError('Please enter the full 6-digit code.');
 				const email = pendingOtpEmail;
 				if (!email) return showOtpError('Something went wrong. Please go back and try again.');
-
 				const btn = document.getElementById('otp-submit-btn');
-				btn.disabled = true;
-				btn.textContent = 'Verifying…';
-
+				btn.disabled = true; btn.textContent = 'Verifying…';
 				const { ok, data } = await api('POST', '/auth/verify-otp', { email, otp });
-
-				btn.disabled = false;
-				btn.textContent = 'Verify & Sign In →';
-
+				btn.disabled = false; btn.textContent = 'Verify & Sign In →';
 				if (!ok) {
 					showOtpError(data?.error?.message || 'Invalid or expired code. Please try again.');
-					// Clear inputs and re-focus
 					document.querySelectorAll('.otp-digit').forEach((d) => { d.value = ''; d.classList.remove('filled'); });
 					document.querySelectorAll('.otp-digit')[0].focus();
 					return;
 				}
-
-				// Success — store token and enter app
 				token = data.data.token;
 				if (data.data.refreshToken) localStorage.setItem('tf_refresh', data.data.refreshToken);
 				currentUser = data.data.user;
@@ -1917,20 +864,14 @@
 				showOtpError('');
 				document.getElementById('otp-error').style.color = 'var(--green)';
 				document.getElementById('otp-error').textContent = '✓ New code sent! Check your inbox.';
-				setTimeout(() => {
-					document.getElementById('otp-error').style.color = '';
-					document.getElementById('otp-error').textContent = '';
-				}, 3000);
-				// Auto-fill and show dev OTP if returned
+				setTimeout(() => { document.getElementById('otp-error').style.color = ''; document.getElementById('otp-error').textContent = ''; }, 3000);
 				const devOtp = data?.data?.dev_otp;
 				const devBanner = document.getElementById('otp-dev-banner');
 				if (devOtp) {
 					devBanner.style.display = 'block';
 					devBanner.innerHTML = `🛠️ <strong>Dev mode</strong> — your OTP is: <strong style="font-family:var(--font-mono);font-size:1.1rem;letter-spacing:0.15em;color:var(--accent)">${devOtp}</strong>`;
 					const inputs = document.querySelectorAll('.otp-digit');
-					devOtp.split('').forEach((ch, i) => {
-						if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); }
-					});
+					devOtp.split('').forEach((ch, i) => { if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); } });
 					setTimeout(() => doVerifyOtp(), 300);
 				} else {
 					devBanner.style.display = 'none';
@@ -1940,49 +881,29 @@
 				startResendCooldown(60);
 			}
 
-			function showOtpError(msg) {
-				const el = document.getElementById('otp-error');
-				el.style.color = '';
-				el.textContent = msg;
-			}
+			function showOtpError(msg) { const el = document.getElementById('otp-error'); el.style.color = ''; el.textContent = msg; }
 
 			function startResendCooldown(seconds) {
 				const btn = document.getElementById('otp-resend-btn');
 				const timer = document.getElementById('otp-timer');
-				btn.disabled = true;
-				btn.style.display = 'none';
-				timer.style.display = 'inline';
-				let remaining = seconds;
+				btn.disabled = true; btn.style.display = 'none';
+				timer.style.display = 'inline'; let remaining = seconds;
 				timer.textContent = `(resend in ${remaining}s)`;
 				clearInterval(otpResendTimer);
 				otpResendTimer = setInterval(() => {
 					remaining--;
-					if (remaining <= 0) {
-						clearInterval(otpResendTimer);
-						btn.disabled = false;
-						btn.style.display = 'inline';
-						timer.style.display = 'none';
-					} else {
-						timer.textContent = `(resend in ${remaining}s)`;
-					}
+					if (remaining <= 0) { clearInterval(otpResendTimer); btn.disabled = false; btn.style.display = 'inline'; timer.style.display = 'none'; }
+					else timer.textContent = `(resend in ${remaining}s)`;
 				}, 1000);
 			}
 
-			// ─── Hamburger / Sidebar ───────────────────────────────────────────────────
-
+			// ── Hamburger / Sidebar ───────────────────────────────────────────
 			function toggleSidebar() {
 				const sidebar = document.getElementById('sidebar');
 				const overlay = document.getElementById('sidebar-overlay');
-				const isOpen = sidebar.classList.contains('open');
-				if (isOpen) {
-					closeSidebar();
-				} else {
-					sidebar.classList.add('open');
-					overlay.classList.add('visible');
-					document.body.style.overflow = 'hidden';
-				}
+				if (sidebar.classList.contains('open')) { closeSidebar(); }
+				else { sidebar.classList.add('open'); overlay.classList.add('visible'); document.body.style.overflow = 'hidden'; }
 			}
-
 			function closeSidebar() {
 				document.getElementById('sidebar').classList.remove('open');
 				document.getElementById('sidebar-overlay').classList.remove('visible');
@@ -1990,9 +911,13 @@
 			}
 
 			async function doLogout() {
-				token = null;
-				currentUser = null;
-				localStorage.removeItem('tf_refresh'); // clear refresh token on explicit logout
+				// Fix 5: call server logout to revoke refresh token
+				const storedRefresh = localStorage.getItem('tf_refresh');
+				if (storedRefresh) {
+					try { await api('POST', '/auth/logout', { refreshToken: storedRefresh }); } catch {}
+				}
+				token = null; currentUser = null;
+				localStorage.removeItem('tf_refresh');
 				document.getElementById('auth-screen').style.display = '';
 				document.getElementById('app-screen').classList.remove('visible');
 			}
@@ -2000,7 +925,9 @@
 			async function enterApp() {
 				document.getElementById('auth-screen').style.display = 'none';
 				document.getElementById('app-screen').classList.add('visible');
-				// Load current user if needed
+				// Restore theme button icon after app renders
+				const saved = localStorage.getItem('tf_theme');
+				document.getElementById('theme-btn').textContent = saved === 'light' ? '☀️' : '🌙';
 				if (!currentUser) {
 					const { ok, data } = await api('GET', '/auth/me');
 					if (ok) currentUser = data.data;
@@ -2013,34 +940,27 @@
 				renderColorPalette();
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Tasks
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			async function loadTasks() {
 				const container = document.getElementById('tasks-container');
 				container.innerHTML = `<div class="loading"><div class="spinner"></div> Loading tasks…</div>`;
-
 				let url = `/tasks?page=${currentPage}&limit=20`;
 				if (currentFilter !== 'all') url += `&status=${currentFilter}`;
 				const pf = document.getElementById('priority-filter')?.value;
 				if (pf) url += `&priority=${pf}`;
+				// Fix 9 — tag filter
+				if (currentTagId) url += `&tag_id=${currentTagId}`;
 
 				const { ok, data } = await api('GET', url);
-				if (!ok) {
-					container.innerHTML = `<div class="empty-state"><div>⚠️</div><p>Failed to load tasks</p></div>`;
-					return;
-				}
-
+				if (!ok) { container.innerHTML = `<div class="empty-state"><div>⚠️</div><p>Failed to load tasks</p></div>`; return; }
 				allTasks = data.data?.tasks || data.tasks || data.data || [];
-				// Calculate totalPages from meta.total + meta.limit
 				const meta = data.meta || {};
 				const total = meta.total ?? allTasks.length;
 				const limit = meta.limit ?? 20;
 				totalPages = Math.max(1, Math.ceil(total / limit));
-
-				renderTasks();
-				renderStats();
-				renderPagination();
+				renderTasks(); renderStats(); renderPagination(); renderFilterPills();
 			}
 
 			function renderTasks() {
@@ -2049,17 +969,16 @@
 					container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><h3>No tasks here</h3><p>Create your first task to get started</p></div>`;
 					return;
 				}
-				container.innerHTML = allTasks.map((task) => taskCard(task)).join('');
+				container.innerHTML = `<div class="tasks-grid">${allTasks.map((task) => taskCard(task)).join('')}</div>`;
 			}
 
 			function taskCard(t) {
-				const statusBadge =
-					{
-						todo: '<span class="badge badge-todo">todo</span>',
-						in_progress: '<span class="badge badge-progress">in progress</span>',
-						completion: '<span class="badge badge-completion">completion</span>',
-						done: '<span class="badge badge-done">done</span>',
-					}[t.status] || '';
+				const statusBadge = {
+					todo:        '<span class="badge badge-todo">todo</span>',
+					in_progress: '<span class="badge badge-progress">in progress</span>',
+					done:        '<span class="badge badge-done">done</span>',
+					cancelled:   '<span class="badge badge-cancelled">cancelled</span>',
+				}[t.status] || '';
 
 				const prioDot = `<span class="priority-dot prio-${t.priority || 'low'}" title="${t.priority || 'low'} priority"></span>`;
 
@@ -2071,102 +990,128 @@
 
 				let tagHtml = '';
 				if (t.tags && t.tags.length) {
-					tagHtml = t.tags
-						.map((tag) => `<span class="tag-chip" style="background:${tag.color}22;color:${tag.color}">${tag.name}</span>`)
-						.join('');
+					tagHtml = t.tags.map((tag) => `<span class="tag-chip" style="background:${tag.color}22;color:${tag.color}">${tag.name}</span>`).join('');
 				}
 
 				let aiHtml = '';
 				if (t.ai_summary) {
 					const sentClass = `sentiment-${t.ai_sentiment || 'neutral'}`;
-					aiHtml = `<div class="ai-strip">⚡ AI: <span class="sentiment ${sentClass}">${t.ai_sentiment || 'neutral'}</span>${t.ai_summary}</div>`;
+					aiHtml = `<div class="ai-strip">⚡ AI: <span class="sentiment ${sentClass}">${t.ai_sentiment || 'neutral'}</span>${esc(t.ai_summary)}</div>`;
 				}
 
 				return `
-    <div class="task-card ${t.status === 'done' ? 'done' : ''}" id="tc-${t.id}">
-      <div>
-        <div class="task-header">
-          ${prioDot}
-          <div class="task-title">${esc(t.title)}</div>
-        </div>
-        ${t.description ? `<div class="task-desc">${esc(t.description)}</div>` : ''}
-        ${aiHtml}
-        <div class="task-meta">
-          ${statusBadge}
-          ${dueHtml}
-          ${tagHtml}
-        </div>
-      </div>
-      <div class="task-actions">
-        <button class="icon-btn" title="Edit" onclick="openEditModal(${t.id})">✏️</button>
-        <button class="icon-btn delete" title="Delete" onclick="deleteTask(${t.id})">🗑</button>
-      </div>
-    </div>`;
+<div class="task-card ${t.status === 'done' ? 'done' : ''}" id="tc-${t.id}">
+  <div>
+    <div class="task-header">${prioDot}<div class="task-title">${esc(t.title)}</div></div>
+    ${t.description ? `<div class="task-desc">${esc(t.description)}</div>` : ''}
+    ${aiHtml}
+    <div class="task-meta">${statusBadge}${dueHtml}${tagHtml}</div>
+  </div>
+  <div class="task-actions">
+    <button class="icon-btn" title="Edit" onclick="openEditModal(${t.id})">✏️</button>
+    <button class="icon-btn delete" title="Delete" onclick="deleteTask(${t.id})">🗑</button>
+  </div>
+</div>`;
 			}
 
 			function renderStats() {
-				// We only have current page tasks — just show what we can
-				const total = allTasks.length;
-				const inProg = allTasks.filter((t) => t.status === 'in_progress').length;
-				const done = allTasks.filter((t) => t.status === 'done').length;
+				const total      = allTasks.length;
+				const inProg     = allTasks.filter((t) => t.status === 'in_progress').length;
+				const done       = allTasks.filter((t) => t.status === 'done').length;
 				const aiEnriched = allTasks.filter((t) => t.ai_summary).length;
-				document.getElementById('stat-total').textContent = total;
+				document.getElementById('stat-total').textContent    = total;
 				document.getElementById('stat-progress').textContent = inProg;
-				document.getElementById('stat-done').textContent = done;
-				document.getElementById('stat-ai').textContent = aiEnriched;
-
-				// Sidebar counts
-				document.getElementById('cnt-all').textContent = total;
-				document.getElementById('cnt-todo').textContent = allTasks.filter((t) => t.status === 'todo').length;
-				document.getElementById('cnt-progress').textContent = inProg;
-				document.getElementById('cnt-done').textContent = done;
+				document.getElementById('stat-done').textContent     = done;
+				document.getElementById('stat-ai').textContent       = aiEnriched;
+				document.getElementById('cnt-all').textContent       = total;
+				document.getElementById('cnt-todo').textContent      = allTasks.filter((t) => t.status === 'todo').length;
+				document.getElementById('cnt-progress').textContent  = inProg;
+				document.getElementById('cnt-done').textContent      = done;
 			}
 
 			function renderPagination() {
 				const el = document.getElementById('pagination');
-				if (totalPages <= 1) {
-					el.innerHTML = '';
-					return;
-				}
+				if (totalPages <= 1) { el.innerHTML = ''; return; }
 				el.innerHTML = `
-    <button class="btn btn-ghost" ${currentPage === 1 ? 'disabled' : ''} onclick="gotoPage(${currentPage - 1})">← Prev</button>
-    <span>Page ${currentPage} of ${totalPages}</span>
-    <button class="btn btn-ghost" ${currentPage === totalPages ? 'disabled' : ''} onclick="gotoPage(${currentPage + 1})">Next →</button>`;
+<button class="btn btn-ghost" ${currentPage===1?'disabled':''} onclick="gotoPage(${currentPage-1})">← Prev</button>
+<span>Page ${currentPage} of ${totalPages}</span>
+<button class="btn btn-ghost" ${currentPage===totalPages?'disabled':''} onclick="gotoPage(${currentPage+1})">Next →</button>`;
 			}
 
-			function gotoPage(p) {
-				currentPage = p;
-				loadTasks();
+			//  Filter pills bar — shows active filters with × to remove
+			function renderFilterPills() {
+				const el = document.getElementById('filter-pills');
+				const pills = [];
+
+				if (currentFilter !== 'all') {
+					const labels = { todo:'Todo', in_progress:'In Progress', done:'Done', cancelled:'Cancelled' };
+					pills.push(`<span class="filter-pill" onclick="setStatusFilter('all', document.getElementById('filter-all'))">
+						${labels[currentFilter] || currentFilter} <span class="pill-x">×</span>
+					</span>`);
+				}
+
+				if (currentTagId) {
+					const tag = tags.find(t => t.id === currentTagId);
+					if (tag) {
+						pills.push(`<span class="filter-pill" onclick="setTagFilter(null, document.getElementById('tag-filter-all'))">
+							<span style="width:7px;height:7px;border-radius:50%;background:${tag.color};display:inline-block"></span>
+							${esc(tag.name)} <span class="pill-x">×</span>
+						</span>`);
+					}
+				}
+
+				const pf = document.getElementById('priority-filter')?.value;
+				if (pf) {
+					pills.push(`<span class="filter-pill" onclick="document.getElementById('priority-filter').value='';applyFilters()">
+						Priority: ${pf} <span class="pill-x">×</span>
+					</span>`);
+				}
+
+				el.style.display = pills.length ? 'flex' : 'none';
+				el.innerHTML = pills.length ? `<span style="font-size:0.7rem;font-family:var(--font-mono);color:var(--muted)">Filters:</span>${pills.join('')}` : '';
 			}
 
-			function setFilter(filter, btn) {
+			function gotoPage(p) { currentPage = p; loadTasks(); }
+
+			// Status filter — sidebar clicks
+			function setStatusFilter(filter, btn) {
 				currentFilter = filter;
 				currentPage = 1;
 				document.querySelectorAll('.sidebar-item').forEach((b) => b.classList.remove('active'));
-				btn.classList.add('active');
-				const labels = { all: 'All Tasks', todo: 'Todo', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' };
+				if (btn) btn.classList.add('active');
+				const labels = { all:'All Tasks', todo:'Todo', in_progress:'In Progress', done:'Done', cancelled:'Cancelled' };
 				document.getElementById('view-title').textContent = labels[filter] || 'Tasks';
-				closeSidebar(); // close on mobile after selection
+				closeSidebar();
 				loadTasks();
 			}
 
-			function applyFilters() {
+			//  Tag filter — sidebar tag clicks
+			function setTagFilter(tagId, btn) {
+				currentTagId = tagId;
 				currentPage = 1;
+				// Update sidebar tag active state
+				document.querySelectorAll('.tag-sidebar-row').forEach((r) => r.classList.remove('active'));
+				if (btn) btn.classList.add('active');
+				if (!btn && tagId === null) {
+					const allBtn = document.getElementById('tag-filter-all');
+					if (allBtn) allBtn.classList.add('active');
+				}
+				closeSidebar();
 				loadTasks();
 			}
+
+			function applyFilters() { currentPage = 1; loadTasks(); }
 
 			async function deleteTask(id) {
 				if (!confirm('Delete this task?')) return;
 				const { ok } = await api('DELETE', `/tasks/${id}`);
-				if (ok) {
-					toast('Task deleted', 'success');
-					loadTasks();
-				} else toast('Failed to delete', 'error');
+				if (ok) { toast('Task deleted', 'success'); loadTasks(); }
+				else toast('Failed to delete', 'error');
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Task Modal (Create / Edit)
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			function openCreateModal() {
 				editingTaskId = null;
 				document.getElementById('modal-title').textContent = 'New Task';
@@ -2175,10 +1120,9 @@
 				document.getElementById('task-desc').value = '';
 				document.getElementById('task-status').value = 'todo';
 				document.getElementById('task-priority').value = 'medium';
-				renderTaskTagSelector([]);
-				console.log(document.getElementById('task-tag-selector'));
 				document.getElementById('task-due').value = '';
 				document.getElementById('modal-error').classList.remove('show');
+				renderTaskTagSelector([]);
 				openModal('task-modal');
 			}
 
@@ -2194,85 +1138,51 @@
 				document.getElementById('task-priority').value = t.priority || 'medium';
 				document.getElementById('task-due').value = t.due_date ? t.due_date.split('T')[0] : '';
 				document.getElementById('modal-error').classList.remove('show');
-				const selectedTagIds = t.tags ? t.tags.map((tag) => tag.id) : [];
-				renderTaskTagSelector(selectedTagIds);
+				renderTaskTagSelector(t.tags ? t.tags.map((tag) => tag.id) : []);
 				openModal('task-modal');
 			}
 
-			const selectedTagIds = Array.from(document.querySelectorAll('#task-tag-selector input:checked')).map((input) => Number(input.value));
-
 			async function saveTask() {
-				const title = document.getElementById('task-title').value.trim();
-				const desc = document.getElementById('task-desc').value.trim();
-				const status = document.getElementById('task-status').value;
+				const title    = document.getElementById('task-title').value.trim();
+				const desc     = document.getElementById('task-desc').value.trim();
+				const status   = document.getElementById('task-status').value;
 				const priority = document.getElementById('task-priority').value;
-				const due = document.getElementById('task-due').value;
-
-				const errEl = document.getElementById('modal-error');
-				if (!title) {
-					errEl.textContent = 'Title is required.';
-					errEl.classList.add('show');
-					return;
-				}
+				const due      = document.getElementById('task-due').value;
+				const errEl    = document.getElementById('modal-error');
+				if (!title) { errEl.textContent = 'Title is required.'; errEl.classList.add('show'); return; }
 				errEl.classList.remove('show');
-
 				const selectedTags = Array.from(document.querySelectorAll('#task-tag-selector input:checked')).map((cb) => Number(cb.value));
-
-				const body = {
-					title,
-					status,
-					priority,
-					tag_ids: selectedTags,
-				};
-
+				const body = { title, status, priority, tag_ids: selectedTags };
 				if (desc) body.description = desc;
 				if (due) body.due_date = due;
-
 				const btn = document.getElementById('modal-save-btn');
 				btn.disabled = true;
-
-				let result;
-				if (editingTaskId) {
-					result = await api('PATCH', `/tasks/${editingTaskId}`, body);
-				} else {
-					result = await api('POST', '/tasks', body);
-				}
-
+				const result = editingTaskId
+					? await api('PATCH', `/tasks/${editingTaskId}`, body)
+					: await api('POST', '/tasks', body);
 				btn.disabled = false;
-				if (!result.ok) {
-					errEl.textContent = result.data?.error?.message || 'Something went wrong.';
-					errEl.classList.add('show');
-					return;
-				}
-
+				if (!result.ok) { errEl.textContent = result.data?.error?.message || 'Something went wrong.'; errEl.classList.add('show'); return; }
 				closeModal('task-modal');
-				toast(editingTaskId ? 'Task updated ✓' : 'Task created — AI enriching… ⚡', 'success');
+				toast(editingTaskId ? 'Task updated ✓' : 'Task created — AI enriching generated summary and insights for this task.… ⚡', 'success');
 				loadTasks();
 			}
 
 			function renderTaskTagSelector(selectedIds = []) {
 				const container = document.getElementById('task-tag-selector');
-				if (!tags.length) {
-					container.innerHTML = '<span style="color:var(--muted)">No tags available</span>';
-					return;
-				}
-
-				container.innerHTML = tags
-					.map((tag) => {
-						const checked = selectedIds.includes(tag.id) ? 'checked' : '';
-						return `
-      <label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;cursor:pointer">
-        <input type="checkbox" value="${tag.id}" ${checked} />
-        <span style="width:10px;height:10px;border-radius:50%;background:${tag.color}"></span>
-        ${esc(tag.name)}
-      </label>
-    `;
-					})
-					.join('');
+				if (!tags.length) { container.innerHTML = '<span style="color:var(--muted)">No tags — create one first</span>'; return; }
+				container.innerHTML = tags.map((tag) => {
+					const checked = selectedIds.includes(tag.id) ? 'checked' : '';
+					return `<label style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;cursor:pointer">
+						<input type="checkbox" value="${tag.id}" ${checked} />
+						<span style="width:10px;height:10px;border-radius:50%;background:${tag.color}"></span>
+						${esc(tag.name)}
+					</label>`;
+				}).join('');
 			}
-			// ═══════════════════════════════════════════════════════════════════════════
+
+			// ═══════════════════════════════════════════════════════════════════
 			// Tags
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			async function loadTags() {
 				const { ok, data } = await api('GET', '/tags');
 				if (!ok) return;
@@ -2281,55 +1191,76 @@
 				renderTagsModal();
 			}
 
+			//  Sidebar tags are now clickable filter buttons
 			function renderSidebarTags() {
 				const el = document.getElementById('sidebar-tags');
-				el.innerHTML = tags
-					.map(
-						(tag) => `
-    <div class="tag-sidebar-row">
-      <span class="tag-dot" style="background:${tag.color}"></span>
-      <span style="font-size:0.8rem">${esc(tag.name)}</span>
-      <button class="tag-remove" onclick="removeTag(${tag.id})" title="Delete tag">✕</button>
-    </div>`,
-					)
-					.join('');
+				el.innerHTML = tags.map((tag) => `
+<button class="tag-sidebar-row ${currentTagId === tag.id ? 'active' : ''}" onclick="setTagFilter(${tag.id}, this)">
+  <span class="tag-dot" style="background:${tag.color}"></span>
+  <span style="font-size:0.82rem;font-weight:500">${esc(tag.name)}</span>
+</button>`).join('');
 			}
 
+			// Fix (Tag recolor): renderTagsModal now has edit button per tag
+			// Clicking edit shows an inline edit row with name input + mini color picker
 			function renderTagsModal() {
 				const el = document.getElementById('tags-list');
-				if (!tags.length) {
-					el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">No tags yet</span>';
-					return;
-				}
-				el.innerHTML = tags.map(tag => `
-					<div class="tag-item" id="tag-row-${tag.id}">
-						<span class="tag-dot" style="background:${tag.color}"></span>
-						<span style="flex:1">${esc(tag.name)}</span>
-						<button class="tag-x" style="margin-right:0.25rem;color:var(--accent);background:none;border:none;cursor:pointer;font-size:0.75rem;font-family:var(--font-mono)" onclick="showTagEdit(${tag.id},'${esc(tag.name)}','${tag.color}')">edit</button>
-						<button class="tag-x" onclick="removeTag(${tag.id})">✕</button>
-					</div>
-					<div id="tag-edit-${tag.id}" style="display:none;padding:0.5rem 0 0.5rem 1.5rem;gap:0.5rem;flex-wrap:wrap;align-items:center" class="tag-item">
-						<input id="tag-edit-name-${tag.id}" type="text" value="${esc(tag.name)}" style="flex:1;min-width:100px;padding:0.4rem 0.6rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.85rem" />
-						<button class="btn btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem" onclick="saveTagEdit(${tag.id})">Save</button>
-						<button class="btn" style="padding:0.35rem 0.75rem;font-size:0.8rem;background:var(--surface2)" onclick="hideTagEdit(${tag.id})">Cancel</button>
-					</div>`).join('');
+				if (!tags.length) { el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">No tags yet</span>'; return; }
+				el.innerHTML = tags.map((tag) => {
+					if (editingTagId === tag.id) {
+						// Inline edit row for this tag
+						const swatches = PALETTE.map((c) => `
+<span class="tag-edit-swatch ${(editingTagColor || tag.color) === c ? 'selected' : ''}"
+  style="background:${c}" onclick="selectEditColor('${c}', this)" title="${c}"></span>`).join('');
+						return `<div class="tag-edit-row" id="tag-edit-row-${tag.id}">
+  <input type="text" id="tag-edit-name-${tag.id}" value="${esc(tag.name)}" placeholder="Tag name" />
+  <div class="tag-edit-swatches">${swatches}</div>
+  <button class="tag-edit-save" onclick="saveTagEdit(${tag.id})">Save</button>
+  <button class="tag-edit-cancel" onclick="cancelTagEdit()">Cancel</button>
+</div>`;
+					}
+					return `<div class="tag-item">
+  <span class="tag-dot" style="background:${tag.color}"></span>
+  <span>${esc(tag.name)}</span>
+  <button class="tag-edit-btn" onclick="startTagEdit(${tag.id}, '${tag.color}')">edit</button>
+  <button class="tag-x" onclick="removeTag(${tag.id})">✕</button>
+</div>`;
+				}).join('');
 			}
 
-			function showTagEdit(id, name, color) {
-				document.getElementById('tag-edit-' + id).style.display = 'flex';
-				document.getElementById('tag-edit-name-' + id).focus();
+			// Start inline edit for a tag
+			function startTagEdit(id, currentColor) {
+				editingTagId = id;
+				editingTagColor = currentColor;
+				renderTagsModal();
+				// Focus the name input
+				setTimeout(() => {
+					const inp = document.getElementById(`tag-edit-name-${id}`);
+					if (inp) { inp.focus(); inp.select(); }
+				}, 50);
 			}
-			function hideTagEdit(id) {
-				document.getElementById('tag-edit-' + id).style.display = 'none';
+
+			// Select color while editing an existing tag (separate from new-tag selectedColor)
+			function selectEditColor(color, el) {
+				editingTagColor = color;
+				document.querySelectorAll('.tag-edit-swatch').forEach((s) => s.classList.remove('selected'));
+				el.classList.add('selected');
 			}
+
+			// Save inline tag edit — sends PATCH /tags/:id with { name, color }
 			async function saveTagEdit(id) {
-				const name = document.getElementById('tag-edit-name-' + id).value.trim();
-				if (!name) return toast('Tag name required', 'error');
-				const { ok, data } = await api('PATCH', '/tags/' + id, { name });
+				const inp = document.getElementById(`tag-edit-name-${id}`);
+				const name = inp ? inp.value.trim() : '';
+				if (!name) return toast('Tag name cannot be empty', 'error');
+				const body = { name, color: editingTagColor };
+				const { ok, data } = await api('PATCH', `/tags/${id}`, body);
 				if (!ok) return toast(data?.error?.message || 'Failed to update tag', 'error');
-				toast('Tag updated', 'success');
-				loadTags();
+				editingTagId = null; editingTagColor = null;
+				toast('Tag updated ✓', 'success');
+				await loadTags();
 			}
+
+			function cancelTagEdit() { editingTagId = null; editingTagColor = null; renderTagsModal(); }
 
 			async function createTag() {
 				const name = document.getElementById('new-tag-name').value.trim();
@@ -2343,26 +1274,17 @@
 
 			async function removeTag(id) {
 				const { ok } = await api('DELETE', `/tags/${id}`);
-				if (ok) {
-					toast('Tag deleted', 'success');
-					loadTags();
-				} else toast('Failed to delete tag', 'error');
+				if (ok) { toast('Tag deleted', 'success'); loadTags(); }
+				else toast('Failed to delete tag', 'error');
 			}
 
-			function openTagsModal() {
-				renderTagsModal();
-				openModal('tags-modal');
-			}
+			function openTagsModal() { editingTagId = null; editingTagColor = null; renderTagsModal(); openModal('tags-modal'); }
 
 			function renderColorPalette() {
 				const row = document.getElementById('color-row');
-				row.innerHTML = PALETTE.map(
-					(c) => `
-    <div class="color-swatch ${c === selectedColor ? 'selected' : ''}"
-         style="background:${c}"
-         onclick="selectColor('${c}', this)"
-         title="${c}"></div>`,
-				).join('');
+				row.innerHTML = PALETTE.map((c) => `
+<div class="color-swatch ${c === selectedColor ? 'selected' : ''}"
+  style="background:${c}" onclick="selectColor('${c}', this)" title="${c}"></div>`).join('');
 			}
 
 			function selectColor(color, el) {
@@ -2371,26 +1293,18 @@
 				el.classList.add('selected');
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Modal helpers
-			// ═══════════════════════════════════════════════════════════════════════════
-			function openModal(id) {
-				document.getElementById(id).classList.add('show');
-			}
-			function closeModal(id) {
-				document.getElementById(id).classList.remove('show');
-			}
-
-			// Close on overlay click
+			// ═══════════════════════════════════════════════════════════════════
+			function openModal(id) { document.getElementById(id).classList.add('show'); }
+			function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 			document.querySelectorAll('.modal-overlay').forEach((overlay) => {
-				overlay.addEventListener('click', (e) => {
-					if (e.target === overlay) overlay.classList.remove('show');
-				});
+				overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
 			});
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Toast
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			function toast(msg, type = 'success') {
 				const el = document.createElement('div');
 				el.className = `toast ${type}`;
@@ -2399,41 +1313,28 @@
 				setTimeout(() => el.remove(), 3500);
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			// Utils
-			// ═══════════════════════════════════════════════════════════════════════════
+			// ═══════════════════════════════════════════════════════════════════
 			function esc(s) {
-				return String(s || '')
-					.replace(/&/g, '&amp;')
-					.replace(/</g, '&lt;')
-					.replace(/>/g, '&gt;')
-					.replace(/"/g, '&quot;');
+				return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 			}
-
 			function fmtDate(d) {
 				if (!d) return '';
 				const dt = new Date(d);
-				return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+				return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 			}
 
-			// ═══════════════════════════════════════════════════════════════════════════
-			// Boot — try to restore session via refresh token
-			// Access token is not persisted (memory only), so on page load we
-			// silently call /auth/refresh. If it succeeds we enter the app.
-			// If it fails (no refresh token or expired) we show the auth screen.
+			// ═══════════════════════════════════════════════════════════════════
+			// Boot
+			// ═══════════════════════════════════════════════════════════════════
 			(async function boot() {
 				const hasRefresh = !!localStorage.getItem('tf_refresh');
 				if (hasRefresh) {
 					const ok = await tryRefresh();
-					if (ok) {
-						document.getElementById('auth-screen').style.display = 'none';
-						await enterApp();
-						return;
-					}
-					// Refresh failed — clear stale key
+					if (ok) { document.getElementById('auth-screen').style.display = 'none'; await enterApp(); return; }
 					localStorage.removeItem('tf_refresh');
 				}
-				// No session — show auth screen (already visible by default)
 			})();
 		</script>
 	</body>

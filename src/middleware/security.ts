@@ -59,8 +59,7 @@ export function addSecurityHeaders(response: Response): Response {
 }
 
 // ─── 2. CORS ──────────────────────────────────────────────────────────────────
-// Allowlist replaces the previous wildcard (*).
-// WHY: wildcard allows ANY website to call the API in a logged-in user's browser.
+// wildcard allows ANY website to call the API in a logged-in user's browser.
 // With an allowlist, only the known frontend origins are permitted.
 //
 // Since the frontend is served from the same Worker (./public/index.html via
@@ -103,12 +102,6 @@ export function handleCors(request: Request): Response | null {
 // ─── 3. Rate limiting — fixed-window with per-minute KV keys ─────────────────
 // KV key format: "rl:{ip}:{windowMinute}"
 //   windowMinute = Math.floor(Date.now() / 60000)
-//
-// WHY this is better than the previous approach:
-//   OLD: key "rl:{ip}" with sliding TTL — a steady stream of requests kept
-//        renewing the TTL so the counter never fully reset.
-//   NEW: key includes the minute bucket — each 60s window is completely
-//        independent. A burst in minute 5 cannot bleed into minute 6.
 //
 // The expirationTtl of 90s means KV auto-cleans each key after the window ends.
 // No manual cleanup needed.
@@ -167,7 +160,7 @@ const XSS_PATTERN =
 const PATH_TRAVERSAL = /(%2e%2e[/\\]|[/\\]%2e%2e)/i;
 
 // Every valid route prefix — anything outside this list gets a 403
-const VALID_PATH_PREFIXES = ['/tasks', '/tags', '/auth', '/health', '/feedback'];
+const VALID_PATH_PREFIXES = ['/tasks', '/tags', '/auth', '/health'];
 
 export async function detectMaliciousInput(request: Request): Promise<Response | null> {
 	const url = new URL(request.url);

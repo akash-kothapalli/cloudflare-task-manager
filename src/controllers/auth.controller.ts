@@ -6,7 +6,7 @@
 //     2. Call one service function
 //     3. Return a typed Response using helpers from utils/response.ts
 //
-//   Fix 5 — logoutController added:
+//   	— logoutController added:
 //     POST /auth/logout accepts { refreshToken } in body OR the HttpOnly cookie.
 //     Calls logoutUser() which deletes the jti from KV — token is permanently dead.
 //     Always returns 200 even if token is already invalid (idempotent logout).
@@ -127,7 +127,6 @@ export async function refreshController(request: Request, env: Env): Promise<Res
 }
 
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
-// Fix 5 — new endpoint.
 //
 // Accepts refresh token from HttpOnly cookie OR { refreshToken } body.
 // Calls logoutUser() → deletes jti from KV → token permanently dead.

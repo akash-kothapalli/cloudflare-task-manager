@@ -10,7 +10,7 @@
 //     - Separate secrets let you invalidate all sessions without affecting
 //       short-lived access tokens that expire on their own in 15 min.
 //
-//   Fix 5 — Refresh token revocation:
+//    — Refresh token revocation:
 //     generateRefreshToken now returns { token, jti } instead of just a string.
 //     jti (JWT ID) = crypto.randomUUID() — unique ID embedded in token payload.
 //     auth.service.ts stores jti in KV on issue, deletes it on logout.
@@ -43,7 +43,7 @@ export async function verifyToken(token: string, env: Env): Promise<JWTPayload> 
 }
 
 // ─── Refresh token (7 days) ───────────────────────────────────────────────────
-// Fix 5 — generateRefreshToken now returns { token, jti } instead of string.
+//  — generateRefreshToken now returns { token, jti } instead of string.
 //
 // WHY return jti separately?
 //   The caller (auth.service.ts → issueTokenPair) needs the jti to store it
