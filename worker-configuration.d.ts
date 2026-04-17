@@ -7,20 +7,36 @@
 //   matches what Cloudflare actually injects at runtime.
 
 interface Env {
-	// D1 database — users, tasks, tags, task_tags
-	DB: D1Database;
-
-	// KV namespace — cache + rate limiting
-	// Binding name MUST match wrangler.jsonc: "binding": "CACHE"
+	// KV namespace — task cache + rate limiting (keyed by minute) + OTP storage
+	// + refresh token revocation (jti denylist)
 	CACHE: KVNamespace;
 
-	// Workers AI — Llama-3 inference (optional: not injected in local/test env)
-	// Guard all AI usage with: if (!env.AI) return;
-	AI?: Ai;
-
 	// Secret — set via: wrangler secret put JWT_SECRET
+	// Signs access tokens (15-min JWT HS256)
 	JWT_SECRET: string;
 
+	// Secret — set via: wrangler secret put REFRESH_TOKEN_SECRET
+	// Signs refresh tokens (7-day JWT HS256) with a separate key so
+	// rotating JWT_SECRET does not invalidate existing refresh tokens.
+	// Falls back to JWT_SECRET + '_refresh' if not set (not recommended for production).
+	REFRESH_TOKEN_SECRET: string;
+
 	// Var — set in wrangler.jsonc "vars" block
+	// "production" in prod, "development" in .dev.vars
+	// Controls whether dev_otp is returned in register/forgot-password responses
 	ENVIRONMENT: string;
+
+	// D1 database — users, tasks, tags, task_tags tables
+	DB: D1Database;
+
+	// Workers AI — Llama-3-8b-instruct for task summarisation + sentiment
+	// Always present in wrangler dev (proxied to real Cloudflare GPU)
+	// and in production. ABSENT only in wrangler.test.jsonc (vitest runner).
+	// Guard in task.service.ts: if (!env.AI) return; — handles test env.
+	AI: Ai;
+
+	// Static assets binding — serves public/index.html at GET /
+	// Declared in wrangler.jsonc: "assets": { "directory": "./public/", "binding": "ASSETS" }
+	// Cloudflare intercepts static asset requests before the Worker fetch handler.
+	ASSETS: Fetcher;
 }
