@@ -97,6 +97,7 @@ cloudflare-task-manager/
 │       ├── schema.sql          ← 4 tables, 8 indexes, CHECK constraints
 │       └── seed.sql            ← Dev test data (2 users, 4 tags, 8 tasks)
 ├── migrations/
+|   ├── 001_initial_schema.sql  ← Initial database schema (tables, indexes, constraints setup) 
 │   └── 002_add_is_verified.sql ← ALTER TABLE users ADD COLUMN is_verified (existing DBs)
 ├── test/
 │   └── index.spec.ts           ← 53 integration tests (vitest-pool-workers)
