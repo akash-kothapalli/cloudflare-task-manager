@@ -63,9 +63,10 @@ export async function generateRefreshToken(
 	// Generate a unique ID for this specific refresh token
 	const jti = crypto.randomUUID();
 
-	const secret = new TextEncoder().encode(
-		env.REFRESH_TOKEN_SECRET ?? env.JWT_SECRET + '_refresh',
-	);
+	if (!env.REFRESH_TOKEN_SECRET) {
+		throw new Error('REFRESH_TOKEN_SECRET is not configured. Set it with: wrangler secret put REFRESH_TOKEN_SECRET');
+	}
+	const secret = new TextEncoder().encode(env.REFRESH_TOKEN_SECRET);
 
 	const token = await new SignJWT({ ...payload, jti })
 		.setProtectedHeader({ alg: 'HS256' })
@@ -81,9 +82,10 @@ export async function generateRefreshToken(
 // Callers extract payload.jti for KV lookup/delete.
 
 export async function verifyRefreshToken(token: string, env: Env): Promise<JWTPayload> {
-	const secret = new TextEncoder().encode(
-		env.REFRESH_TOKEN_SECRET ?? env.JWT_SECRET + '_refresh',
-	);
+	if (!env.REFRESH_TOKEN_SECRET) {
+		throw new Error('REFRESH_TOKEN_SECRET is not configured. Set it with: wrangler secret put REFRESH_TOKEN_SECRET');
+	}
+	const secret = new TextEncoder().encode(env.REFRESH_TOKEN_SECRET);
 	const { payload } = await jwtVerify(token, secret);
 	return payload;
 }

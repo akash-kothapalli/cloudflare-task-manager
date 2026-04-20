@@ -48,8 +48,13 @@ function withRefreshCookie(response: Response, refreshToken: string): Response {
 // Clears the refresh cookie on logout — browser deletes it immediately.
 function clearRefreshCookie(response: Response): Response {
 	const headers = new Headers(response.headers);
-	// Max-Age=0 tells the browser to delete the cookie immediately
-	headers.set('Set-Cookie', `refresh_token=; HttpOnly; Secure; SameSite=None; Path=/auth; Max-Age=0`);
+	// Clear current path (Path=/auth) — covers all /auth/* routes
+	headers.append('Set-Cookie', 'refresh_token=; HttpOnly; Secure; SameSite=None; Path=/auth; Max-Age=0');
+	// Also clear old path (Path=/auth/refresh) — removes stale cookie that may
+	// exist in browsers that logged in before the Path was standardised to /auth.
+	// Using headers.append (not .set) sends both Set-Cookie headers so the
+	// browser deletes both cookies in a single response.
+	headers.append('Set-Cookie', 'refresh_token=; HttpOnly; Secure; SameSite=None; Path=/auth/refresh; Max-Age=0');
 	return new Response(response.body, { status: response.status, headers });
 }
 

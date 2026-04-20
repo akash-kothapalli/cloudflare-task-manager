@@ -28,15 +28,17 @@ const OTP_DIGITS = 6;
  * Generates a cryptographically random 6-digit OTP and stores it in KV.
  * Overwrites any existing OTP for this email (re-send flow).
  */
-export async function generateAndStoreOtp(cache: KVNamespace, email: string): Promise<string> {
+export async function generateAndStoreOtp(cache: KVNamespace, email: string, purpose: 'verify' | 'reset'): Promise<string> {
 	const array = new Uint32Array(1);
 	crypto.getRandomValues(array);
 
 	// DataView avoids the TypeScript strict-mode "possibly undefined" on array[0]
 	const randomValue = new DataView(array.buffer).getUint32(0, true);
 	const otp = String(randomValue % 1_000_000).padStart(OTP_DIGITS, '0');
-
-	await cache.put(`otp:${email.toLowerCase()}`, otp, { expirationTtl: OTP_TTL });
+	// Namespace key by purpose so verify and reset OTPs never collide.
+	// otp:verify:{email} — email verification flow
+	// otp:reset:{email}  — password reset flow
+	await cache.put(`otp:${purpose}:${email.toLowerCase()}`, otp, { expirationTtl: OTP_TTL });
 
 	return otp;
 }
@@ -47,8 +49,8 @@ export async function generateAndStoreOtp(cache: KVNamespace, email: string): Pr
  * Verifies the OTP for a given email.
  * Returns true if valid. Deletes the KV key on success (single-use).
  */
-export async function verifyOtp(cache: KVNamespace, email: string, inputOtp: string): Promise<boolean> {
-	const key = `otp:${email.toLowerCase()}`;
+export async function verifyOtp(cache: KVNamespace, email: string, inputOtp: string, purpose: 'verify' | 'reset'): Promise<boolean> {
+	const key = `otp:${purpose}:${email.toLowerCase()}`;
 	const stored = await cache.get(key);
 
 	if (!stored) return false;

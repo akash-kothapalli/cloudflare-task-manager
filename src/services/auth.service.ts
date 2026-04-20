@@ -147,7 +147,7 @@ export async function registerUser(db: D1Database, env: Env, input: RegisterInpu
 			throw AppError.conflict('An account with this email already exists');
 		}
 		// Unverified account exists — resend OTP instead of creating duplicate
-		const otp = await generateAndStoreOtp(env.CACHE, input.email);
+		const otp = await generateAndStoreOtp(env.CACHE, input.email, 'verify');
 		await sendOtpEmail(env, input.email, otp, existing.name);
 		return {
 			requiresVerification: true,
@@ -160,7 +160,7 @@ export async function registerUser(db: D1Database, env: Env, input: RegisterInpu
 	const hashedPassword = await hashPassword(input.password);
 	await createUser(db, input.email, input.name, hashedPassword);
 
-	const otp = await generateAndStoreOtp(env.CACHE, input.email);
+	const otp = await generateAndStoreOtp(env.CACHE, input.email, 'verify');
 	await sendOtpEmail(env, input.email, otp, input.name);
 
 	return {
@@ -182,7 +182,7 @@ export async function verifyOtpAndLogin(
 	const user = await findByEmail(db, email);
 	if (!user) throw AppError.badRequest('Invalid or expired verification code');
 
-	const isValid = await verifyOtp(env.CACHE, email, otp);
+	const isValid = await verifyOtp(env.CACHE, email, otp, 'verify');
 	if (!isValid) throw AppError.badRequest('Invalid or expired verification code');
 
 	if (user.is_verified === 0) {
@@ -322,7 +322,7 @@ export async function resendOtp(
 	if (!user) return { message: 'If that email is registered, a new code has been sent.' };
 	if (user.is_verified === 1) return { message: 'This account is already verified. Please log in.' };
 
-	const otp = await generateAndStoreOtp(env.CACHE, email);
+	const otp = await generateAndStoreOtp(env.CACHE, email, 'verify');
 	await sendOtpEmail(env, email, otp, user.name);
 
 	return {
@@ -343,7 +343,7 @@ export async function forgotPassword(
 	// Always return same message — prevents email enumeration
 	if (!user) return { message: 'If that email is registered, a reset code has been sent.' };
 
-	const otp = await generateAndStoreOtp(env.CACHE, email);
+	const otp = await generateAndStoreOtp(env.CACHE, email, 'reset');
 	await sendOtpEmail(env, email, otp, user.name);
 
 	return {
@@ -368,7 +368,7 @@ export async function resetPassword(
 	const user = await findByEmail(db, email);
 	if (!user) throw AppError.badRequest('Invalid or expired reset code');
 
-	const isValid = await verifyOtp(env.CACHE, email, otp);
+	const isValid = await verifyOtp(env.CACHE, email, otp, 'reset');
 	if (!isValid) throw AppError.badRequest('Invalid or expired reset code');
 
 	const hashed = await hashPassword(newPassword);

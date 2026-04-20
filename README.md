@@ -16,7 +16,7 @@ Create and manage tasks with full lifecycle tracking (todo → in progress → d
 
 The frontend is a single `public/index.html` — zero dependencies, zero build step:
 
-- **Auth** — Login / Register tabs with show/hide password toggle. Access token in JS memory only (XSS-safe). Refresh token in HttpOnly cookie (server-set, auto-sent by browser) and `localStorage` as fallback for API clients. Session auto-restored on refresh via silent token renewal
+- **Auth** — Login / Register tabs with show/hide password toggle. Access token in JS memory only (XSS-safe). Refresh token in `HttpOnly; Secure; SameSite=None` cookie (server-set, auto-sent by browser on all `/auth/*` routes). Session auto-restored on page refresh via silent token renewal — `boot()` calls `POST /auth/refresh` on load; browser sends cookie automatically via `credentials: 'include'`
 - **Forgot password** — Email OTP flow: enter email → receive reset code → enter code + new password → signed in automatically
 - **Task board** — Cards with status chips, priority badges, due dates, and tag chips
 - **AI strip** — `ai_summary` and `ai_sentiment` appear on each card after Llama-3 enriches (colour-coded: green = positive, yellow = neutral, red = negative)
@@ -788,10 +788,12 @@ Note:  KV has no atomic increment (no CAS). A small overage (~2-3 requests)
 **OTP storage:**
 
 ```
-Key:   otp:{email}
-Value: 6-digit code (cryptographically random)
+Key:   otp:verify:{email}   — email verification flow (register / resend-otp)
+otp:reset:{email}    — password reset flow (forgot-password / reset-password)
+Value: 6-digit code (cryptographically random via Web Crypto)
 TTL:   600 seconds (10 minutes)
-Use:   Registration verification + forgot-password reset codes
+Use:   Two separate namespaces prevent a verification OTP being accepted
+by the password reset endpoint and vice versa.
 Note:  Single-use — deleted immediately on successful verification
 ```
 
@@ -890,7 +892,7 @@ POST /tasks  →  Worker returns 201 immediately (< 50ms)
 | WAF              | SQLi, XSS (URL + request body), path traversal — regex + escaped-root detection on every request |
 | Task isolation   | Every query: `AND user_id = ?` — cross-user access impossible                                                                                                                                                                                                                                            |
 | OTP security     | Cryptographically random (Web Crypto), 10-min TTL, single-use (deleted on verify), timing-safe comparison |
-| Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
+| Security headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'` (unsafe-inline required by inline scripts in index.html — planned removal post-submission), `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
 | CORS | Allowlist (not wildcard `*`) — only `taskflow-akash.workers.dev` and localhost dev ports accepted. Wildcard would allow any website to call the API with a logged-in user's credentials. Preflight handled before rate limiting. |
 
 ---
@@ -920,11 +922,35 @@ npm run cf-typegen        # Regenerate worker-configuration.d.ts from wrangler.j
 ```
 
 ---
+## Security Fixes Applied
+
+Three security issues identified during review and patched before submission:
+
+### OTP namespace isolation
+Both email verification and password reset previously wrote to the same KV key
+`otp:{email}`. A verification OTP could be accepted by the password reset
+endpoint. Fixed by namespacing keys: `otp:verify:{email}` and
+`otp:reset:{email}`. All six callers in `auth.service.ts` updated with the
+correct `purpose` argument.
+
+### REFRESH_TOKEN_SECRET hard fail
+`generateRefreshToken()` and `verifyRefreshToken()` previously fell back to
+`JWT_SECRET + '_refresh'` when `REFRESH_TOKEN_SECRET` was missing. This
+silently defeated the purpose of a separate secret. Both functions now throw
+immediately with a clear setup instruction if the secret is absent.
+
+### Cookie path cleanup on logout
+The `refresh_token` cookie `Path` was changed from `/auth/refresh` to `/auth`
+during development. Browsers that logged in before the change retained a stale
+cookie at the old path. On logout, `clearRefreshCookie()` now sends two
+`Set-Cookie: Max-Age=0` headers — one per path — using `headers.append()`
+(not `.set`, which would overwrite the first). This cleans up both cookies
+on the next logout regardless of when the browser last authenticated.
 
 ## Technical Summary
 
 **Why no framework (no Hono)?**
-The assessment required demonstrating HTTP knowledge. A custom router and middleware pipeline makes every decision explicit — request parsing, auth checking, header injection, error propagation. Nothing is hidden by framework magic.
+The assessment weighted HTTP knowledge at 40%. A custom router and middleware pipeline makes every HTTP decision explicit and reviewable — method matching, path parsing, auth flow, CORS preflight ordering, header injection, error propagation. Nothing is hidden by framework abstractions. In a production system I would use Hono for its type-safe routing, built-in OpenAPI generation, and middleware composition — but for this assessment, the hand-rolled approach directly demonstrates the HTTP understanding being evaluated.
 
 **Why vanilla JS frontend?**
 A single `index.html` with zero build tooling proves a complete product can ship without a framework. The whole frontend is reviewable in one file, loads instantly with no bundle parsing, and has zero supply-chain attack surface.
